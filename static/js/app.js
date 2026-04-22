@@ -1,642 +1,463 @@
 /**
- * ElectWise AI — Main Application Script
- * Handles navigation, chat, voter guide, and quiz functionality.
+ * ElectWise — Main App Script (Gen Z Edition)
+ * Handles navigation, chat, voter guide, quiz, and micro-interactions.
  */
-
 "use strict";
 
-/* ── App State ─────────────────────────────────────────────────────── */
+/* ── State ──────────────────────────────────────────────────────────── */
 const state = {
   country: "India",
-  chatHistory: [],      // [{role, content}]
-  quizQuestions: [],
-  currentQuestion: 0,
-  score: 0,
-  quizDifficulty: "medium",
+  chatHistory: [],
+  quiz: { questions: [], current: 0, score: 0 },
+  difficulty: "medium",
   timelineLoaded: false,
   guideLoaded: false,
 };
 
-/* ── DOM Cache ─────────────────────────────────────────────────────── */
+/* ── $ shortcut ─────────────────────────────────────────────────────── */
 const $ = (id) => document.getElementById(id);
 
-/* ── Initialisation ────────────────────────────────────────────────── */
+/* ── Boot ───────────────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", () => {
-  initNavigation();
-  initCountrySelector();
+  initTabs();
+  initCountry();
   initChat();
   initQuiz();
-  initContrastToggle();
+  initContrast();
 });
 
-/* ── Navigation ─────────────────────────────────────────────────────── */
-function initNavigation() {
-  const navBtns = document.querySelectorAll(".nav-btn");
-
-  navBtns.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const section = btn.dataset.section;
-      switchSection(section);
-    });
+/* ══ NAVIGATION ═════════════════════════════════════════════════════════ */
+function initTabs() {
+  document.querySelectorAll(".pill").forEach((btn) => {
+    btn.addEventListener("click", () => switchTab(btn.dataset.tab));
   });
 }
 
-/**
- * Switch the active section and lazy-load data as needed.
- * @param {string} sectionName - 'chat' | 'timeline' | 'guide' | 'quiz'
- */
-function switchSection(sectionName) {
-  // Update nav buttons
-  document.querySelectorAll(".nav-btn").forEach((btn) => {
-    const active = btn.dataset.section === sectionName;
-    btn.classList.toggle("active", active);
-    btn.setAttribute("aria-current", active ? "page" : "false");
+function switchTab(name) {
+  // Buttons
+  document.querySelectorAll(".pill").forEach((b) => {
+    const on = b.dataset.tab === name;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-selected", on);
   });
 
-  // Show/hide sections
-  document.querySelectorAll(".section").forEach((sec) => {
-    const show = sec.id === `section-${sectionName}`;
-    sec.classList.toggle("active", show);
-    sec.classList.toggle("hidden", !show);
-    if (show) sec.hidden = false;
+  // Panels
+  document.querySelectorAll(".tab").forEach((t) => {
+    const show = t.id === `tab-${name}`;
+    t.classList.toggle("active", show);
+    t.classList.toggle("hidden", !show);
   });
 
-  // Lazy-load content
-  if (sectionName === "timeline" && !state.timelineLoaded) {
+  // Lazy load
+  if (name === "timeline" && !state.timelineLoaded) {
     loadTimeline(state.country);
     state.timelineLoaded = true;
   }
-  if (sectionName === "guide" && !state.guideLoaded) {
+  if (name === "guide" && !state.guideLoaded) {
     loadVoterGuide(state.country);
     state.guideLoaded = true;
   }
-
-  // Announce section change to screen readers
-  const sectionEl = $(`section-${sectionName}`);
-  if (sectionEl) {
-    sectionEl.focus?.();
-  }
 }
 
-/* ── Country Selector ───────────────────────────────────────────────── */
-function initCountrySelector() {
-  const select = $("country-select");
-  if (!select) return;
-
-  select.addEventListener("change", () => {
-    state.country = select.value;
-    // Reset lazy-load flags so content refreshes
+/* ══ COUNTRY ════════════════════════════════════════════════════════════ */
+function initCountry() {
+  $("country-select")?.addEventListener("change", (e) => {
+    state.country = e.target.value;
     state.timelineLoaded = false;
     state.guideLoaded = false;
 
-    // Reload current section if it's timeline or guide
-    const activeSection = document.querySelector(".nav-btn.active")?.dataset.section;
-    if (activeSection === "timeline") {
-      loadTimeline(state.country);
-      state.timelineLoaded = true;
-    }
-    if (activeSection === "guide") {
-      loadVoterGuide(state.country);
-      state.guideLoaded = true;
-    }
+    const active = document.querySelector(".pill.active")?.dataset.tab;
+    if (active === "timeline") { loadTimeline(state.country); state.timelineLoaded = true; }
+    if (active === "guide")    { loadVoterGuide(state.country); state.guideLoaded = true; }
   });
 }
 
-/* ── Chat ───────────────────────────────────────────────────────────── */
+/* ══ CHAT ═══════════════════════════════════════════════════════════════ */
 function initChat() {
-  const form = $("chat-form");
+  const form  = $("chat-form");
   const input = $("chat-input");
-  const sendBtn = $("send-btn");
+  const btn   = $("send-btn");
+  if (!form) return;
 
-  if (!form || !input) return;
-
-  // Auto-resize textarea
+  // Auto-grow textarea
   input.addEventListener("input", () => {
     input.style.height = "auto";
     input.style.height = Math.min(input.scrollHeight, 120) + "px";
   });
 
-  // Handle Enter to send, Shift+Enter for newline
+  // Enter = send, Shift+Enter = newline
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      submitChat();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); }
   });
 
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    submitChat();
-  });
+  form.addEventListener("submit", (e) => { e.preventDefault(); doSend(); });
 
-  // Quick prompt chips
-  document.querySelectorAll(".prompt-chip").forEach((chip) => {
+  // Quick suggestions
+  document.querySelectorAll(".suggestion").forEach((chip) => {
     chip.addEventListener("click", () => {
-      const prompt = chip.dataset.prompt;
-      if (prompt && input) {
-        input.value = prompt;
-        input.dispatchEvent(new Event("input")); // trigger resize
-        submitChat();
-      }
+      input.value = chip.dataset.prompt;
+      doSend();
     });
   });
 }
 
-/** Submit the chat message to the API. */
-async function submitChat() {
+async function doSend() {
   const input = $("chat-input");
-  const sendBtn = $("send-btn");
-  const message = input?.value.trim();
+  const btn   = $("send-btn");
+  const msg   = input.value.trim();
+  if (!msg || btn.disabled) return;
 
-  if (!message || sendBtn?.disabled) return;
-
-  // Clear input
   input.value = "";
   input.style.height = "auto";
+  btn.disabled = true;
 
-  // Append user message
-  appendMessage("user", message);
-
-  // Update local history
-  state.chatHistory.push({ role: "user", content: message });
-
-  // Show typing indicator
+  appendMsg("user", msg);
+  state.chatHistory.push({ role: "user", content: msg });
   setTyping(true);
 
-  // Disable send button
-  if (sendBtn) sendBtn.disabled = true;
-
   try {
-    const res = await fetch("/api/chat", {
+    const res  = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        message,
+        message: msg,
         country: state.country,
-        history: state.chatHistory.slice(-10),  // Keep context window light
+        history: state.chatHistory.slice(-10),
       }),
     });
-
     const data = await res.json();
-
     setTyping(false);
 
     if (res.ok && data.status === "success") {
-      const reply = data.response;
-      appendMessage("ai", reply);
-      state.chatHistory.push({ role: "model", content: reply });
+      appendMsg("ai", data.response);
+      state.chatHistory.push({ role: "model", content: data.response });
     } else {
-      const errMsg = data.error || "Something went wrong. Please try again.";
-      appendMessage("ai", `⚠️ ${errMsg}`, true);
+      appendMsg("ai", `⚠️ ${data.error || "Something went wrong. Try again!"}`, true);
     }
-  } catch (err) {
+  } catch {
     setTyping(false);
-    appendMessage("ai", "⚠️ Network error. Please check your connection and try again.", true);
-    console.error("Chat error:", err);
+    appendMsg("ai", "⚠️ Network error — check your connection and try again.", true);
   } finally {
-    if (sendBtn) sendBtn.disabled = false;
-    input?.focus();
+    btn.disabled = false;
+    input.focus();
   }
 }
 
-/**
- * Append a message bubble to the chat window.
- * @param {'user'|'ai'} role
- * @param {string} text
- * @param {boolean} isError
- */
-function appendMessage(role, text, isError = false) {
-  const container = $("chat-messages");
-  if (!container) return;
+function appendMsg(role, text, isErr = false) {
+  const box = $("messages");
+  if (!box) return;
 
   const isAi = role === "ai";
-  const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const now   = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-  const msgEl = document.createElement("div");
-  msgEl.className = `message message-${isAi ? "ai" : "user"}`;
-  msgEl.setAttribute("role", "article");
-  msgEl.setAttribute("aria-label", `${isAi ? "ElectWise AI" : "You"} at ${now}`);
+  const row = document.createElement("div");
+  row.className = `msg-row ${isAi ? "ai" : "user"}`;
+  row.setAttribute("role", "article");
+  row.setAttribute("aria-label", `${isAi ? "ElectWise AI" : "You"} at ${now}`);
 
-  const avatar = isAi ? "🗳️" : "👤";
-  const name = isAi ? "ElectWise AI" : "You";
+  const bubbleClass = isAi ? "ai-bubble" : "user-bubble";
+  const avatarClass = isAi ? "ai-avatar" : "user-avatar";
+  const avatarIcon  = isAi ? "⚡" : "👤";
+  const name        = isAi ? "ElectWise AI" : "You";
 
-  // Format AI text: convert markdown-lite to HTML
-  const formattedText = isAi ? formatAiText(text) : `<p>${escapeHtml(text)}</p>`;
-
-  msgEl.innerHTML = `
-    <div class="message-avatar" aria-hidden="true">${avatar}</div>
-    <div class="message-content">
-      <div class="message-header">
-        <strong>${name}</strong>
-        <span class="message-time" aria-label="Sent at ${now}">${now}</span>
-      </div>
-      <div class="message-text${isError ? ' style="border-color:var(--clr-danger)"' : ''}">
-        ${formattedText}
-      </div>
+  row.innerHTML = `
+    <div class="avatar ${avatarClass}" aria-hidden="true">${avatarIcon}</div>
+    <div class="bubble-wrap">
+      <div class="sender">${name} <span class="ts">${now}</span></div>
+      <div class="bubble ${bubbleClass}">${isAi ? fmtAI(text) : `<p>${esc(text)}</p>`}</div>
     </div>`;
 
-  container.appendChild(msgEl);
-
-  // Scroll to bottom with smooth behaviour
-  container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+  box.appendChild(row);
+  box.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
 }
 
-/**
- * Format AI response text with basic markdown-to-HTML conversion.
- * @param {string} text
- * @returns {string} Safe HTML string
- */
-function formatAiText(text) {
-  // Escape first, then selectively restore formatting
-  let html = escapeHtml(text);
+/** Lightweight markdown → HTML (escaped first, then formatted). */
+function fmtAI(raw) {
+  let t = esc(raw);
 
-  // Bold: **text** or __text__
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/__(.+?)__/g, "<strong>$1</strong>");
+  // Bold
+  t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  t = t.replace(/__(.+?)__/g, "<strong>$1</strong>");
 
-  // Bullet lists: lines starting with - or *
-  const lines = html.split("\n");
-  const processed = [];
-  let inList = false;
+  // Split into lines, handle bullets and paragraphs
+  const lines = t.split("\n");
+  const out   = [];
+  let inList  = false;
 
   for (const line of lines) {
-    const trimmed = line.trim();
-    if (/^[-*•]\s+/.test(trimmed)) {
-      if (!inList) { processed.push("<ul>"); inList = true; }
-      processed.push(`<li>${trimmed.replace(/^[-*•]\s+/, "")}</li>`);
+    const s = line.trim();
+    if (!s) {
+      if (inList) { out.push("</ul>"); inList = false; }
+      continue;
+    }
+    if (/^[-*•]\s/.test(s)) {
+      if (!inList) { out.push("<ul>"); inList = true; }
+      out.push(`<li>${s.replace(/^[-*•]\s+/, "")}</li>`);
     } else {
-      if (inList) { processed.push("</ul>"); inList = false; }
-      if (trimmed) processed.push(`<p>${trimmed}</p>`);
+      if (inList) { out.push("</ul>"); inList = false; }
+      out.push(`<p>${s}</p>`);
     }
   }
-  if (inList) processed.push("</ul>");
-
-  return processed.join("");
+  if (inList) out.push("</ul>");
+  return out.join("");
 }
 
-/** Show or hide the typing indicator. */
 function setTyping(show) {
-  const indicator = $("typing-indicator");
-  if (indicator) {
-    indicator.hidden = !show;
-    if (show) {
-      const container = $("chat-messages");
-      if (container) container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-    }
-  }
+  const row = $("typing-row");
+  if (!row) return;
+  row.hidden = !show;
+  if (show) $("messages")?.scrollTo({ top: $("messages").scrollHeight, behavior: "smooth" });
 }
 
-/* ── Voter Guide ────────────────────────────────────────────────────── */
-
-/**
- * Fetch and render the voter registration guide.
- * @param {string} country
- */
+/* ══ VOTER GUIDE ════════════════════════════════════════════════════════ */
 async function loadVoterGuide(country) {
-  const container = $("guide-container");
+  const grid    = $("guide-grid");
   const titleEl = $("guide-title");
-  if (!container) return;
+  if (!grid) return;
 
-  container.innerHTML = `
-    <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--clr-text-muted)">
-      <div class="spinner" style="margin:0 auto 16px"></div>
-      <p>Loading voter guide…</p>
-    </div>`;
+  grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--tx2)">
+    <div class="sk-card" style="width:100%;max-width:300px;height:100px;margin:0 auto"></div>
+  </div>`;
 
   try {
-    const res = await fetch(`/api/voter-guide?country=${encodeURIComponent(country)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const res  = await fetch(`/api/voter-guide?country=${encodeURIComponent(country)}`);
     const data = await res.json();
-
     if (data.status !== "success") throw new Error(data.error);
 
     const { guide } = data;
     if (titleEl) titleEl.textContent = guide.title;
+    grid.innerHTML = "";
 
-    container.innerHTML = "";
-    guide.checklist.forEach((step, idx) => {
+    guide.checklist.forEach((step, i) => {
       const card = document.createElement("div");
-      card.className = "guide-step-card";
+      card.className = "guide-card";
       card.setAttribute("role", "listitem");
       card.setAttribute("aria-label", `Step ${step.step}: ${step.title}`);
-      card.style.animationDelay = `${idx * 80}ms`;
+      card.style.animationDelay = `${i * 60}ms`;
 
       card.innerHTML = `
-        <div class="guide-step-icon" aria-hidden="true">${step.icon}</div>
-        <div class="guide-step-number">Step ${step.step}</div>
-        <h3 class="guide-step-title">${escapeHtml(step.title)}</h3>
-        <p class="guide-step-desc">${escapeHtml(step.description)}</p>
-        <p class="guide-step-action">→ ${escapeHtml(step.action)}</p>`;
-
-      container.appendChild(card);
+        <div class="guide-icon" aria-hidden="true">${step.icon}</div>
+        <span class="guide-step-tag">Step ${step.step}</span>
+        <h3 class="guide-card-title">${esc(step.title)}</h3>
+        <p class="guide-card-desc">${esc(step.description)}</p>
+        <p class="guide-card-action">→ ${esc(step.action)}</p>`;
+      grid.appendChild(card);
     });
 
   } catch (err) {
-    container.innerHTML = `
-      <div role="alert" style="grid-column:1/-1;text-align:center;padding:40px;color:var(--clr-text-muted)">
-        <p>Failed to load voter guide. <button onclick="loadVoterGuide('${country}')"
-          style="color:var(--clr-primary);background:none;border:none;cursor:pointer;font-weight:600;text-decoration:underline">
-          Retry
-        </button></p>
-      </div>`;
-    console.error("Voter guide error:", err);
+    grid.innerHTML = `<div role="alert" style="grid-column:1/-1;text-align:center;padding:40px;color:var(--tx2)">
+      ⚠️ Failed to load. <button onclick="loadVoterGuide('${country}')"
+        style="color:var(--violet-lt);background:none;border:none;cursor:pointer;font-weight:700;text-decoration:underline">Retry</button>
+    </div>`;
+    console.error(err);
   }
 }
 
-/* ── Quiz ───────────────────────────────────────────────────────────── */
+/* ══ QUIZ ════════════════════════════════════════════════════════════════ */
 function initQuiz() {
-  // Difficulty buttons
-  document.querySelectorAll(".diff-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".diff-btn").forEach((b) => {
-        b.classList.remove("active");
-        b.setAttribute("aria-pressed", "false");
+  // Difficulty
+  document.querySelectorAll(".diff-btn").forEach((b) => {
+    b.addEventListener("click", () => {
+      document.querySelectorAll(".diff-btn").forEach((x) => {
+        x.classList.remove("active");
+        x.setAttribute("aria-pressed", "false");
       });
-      btn.classList.add("active");
-      btn.setAttribute("aria-pressed", "true");
-      state.quizDifficulty = btn.dataset.diff;
+      b.classList.add("active");
+      b.setAttribute("aria-pressed", "true");
+      state.difficulty = b.dataset.diff;
     });
   });
 
-  // Start quiz
-  const startBtn = $("start-quiz-btn");
-  if (startBtn) {
-    startBtn.addEventListener("click", startQuiz);
-  }
-
-  // Next question button
-  const nextBtn = $("next-btn");
-  if (nextBtn) {
-    nextBtn.addEventListener("click", () => {
-      state.currentQuestion++;
-      if (state.currentQuestion < state.quizQuestions.length) {
-        renderQuestion();
-      } else {
-        showQuizResults();
-      }
-    });
-  }
-
-  // Retry button
-  const retryBtn = $("retry-quiz-btn");
-  if (retryBtn) {
-    retryBtn.addEventListener("click", resetQuiz);
-  }
+  $("gen-quiz-btn")?.addEventListener("click", startQuiz);
+  $("next-btn")?.addEventListener("click", nextQ);
+  $("retry-btn")?.addEventListener("click", resetQuiz);
 }
 
-/** Fetch quiz questions from the API and start the quiz. */
 async function startQuiz() {
-  const startScreen = $("quiz-start-screen");
-  const loading = $("quiz-loading");
-  const container = $("quiz-container");
-  const results = $("quiz-results");
-
-  if (loading) loading.hidden = false;
-  if (startScreen) startScreen.style.display = "none";
-  if (container) container.hidden = true;
-  if (results) results.hidden = true;
+  show("quiz-loading");
+  hide("quiz-start");
+  hide("quiz-container");
+  hide("quiz-results");
 
   try {
-    const res = await fetch("/api/quiz/generate", {
+    const res  = await fetch("/api/quiz/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        country: state.country,
-        difficulty: state.quizDifficulty,
-      }),
+      body: JSON.stringify({ country: state.country, difficulty: state.difficulty }),
     });
-
     const data = await res.json();
-
-    if (loading) loading.hidden = true;
+    hide("quiz-loading");
 
     if (res.ok && data.status === "success") {
-      state.quizQuestions = data.questions;
-      state.currentQuestion = 0;
-      state.score = 0;
-      if (container) container.hidden = false;
-      renderQuestion();
+      state.quiz = { questions: data.questions, current: 0, score: 0 };
+      show("quiz-container");
+      renderQ();
     } else {
-      showQuizError(data.error || "Failed to generate quiz. Please try again.");
+      quizErr(data.error || "Failed to generate quiz. Try again.");
     }
-  } catch (err) {
-    if (loading) loading.hidden = true;
-    showQuizError("Network error. Please check your connection.");
-    console.error("Quiz error:", err);
+  } catch {
+    hide("quiz-loading");
+    quizErr("Network error. Please check your connection.");
   }
 }
 
-/** Render the current question. */
-function renderQuestion() {
-  const q = state.quizQuestions[state.currentQuestion];
-  if (!q) return;
-
-  const total = state.quizQuestions.length;
-  const idx = state.currentQuestion;
-  const pct = Math.round(((idx) / total) * 100);
+function renderQ() {
+  const q     = state.quiz.questions[state.quiz.current];
+  const total = state.quiz.questions.length;
+  const idx   = state.quiz.current;
+  const pct   = Math.round((idx / total) * 100);
 
   // Progress
-  const bar = $("quiz-progress-bar");
-  if (bar) {
-    bar.style.width = pct + "%";
-    bar.setAttribute("aria-valuenow", pct);
-  }
-  const counter = $("quiz-counter");
-  if (counter) counter.textContent = `Question ${idx + 1} of ${total}`;
-
-  const scoreDisplay = $("quiz-score-display");
-  if (scoreDisplay) scoreDisplay.textContent = `Score: ${state.score}`;
-
-  // Question text
-  const questionEl = $("question-text");
-  if (questionEl) questionEl.textContent = q.question;
+  const bar = $("q-bar");
+  if (bar) { bar.style.width = pct + "%"; bar.setAttribute("aria-valuenow", pct); }
+  if ($("q-counter")) $("q-counter").textContent = `${idx + 1} / ${total}`;
+  if ($("q-score"))   $("q-score").textContent   = `⭐ ${state.quiz.score}`;
+  if ($("q-num"))     $("q-num").textContent      = `Q${idx + 1}`;
+  if ($("q-text"))    $("q-text").textContent     = q.question;
 
   // Options
-  const optionsGrid = $("options-grid");
-  if (optionsGrid) {
-    optionsGrid.innerHTML = "";
+  const opts = $("options");
+  if (opts) {
+    opts.innerHTML = "";
     const letters = ["A", "B", "C", "D"];
-    q.options.forEach((option, i) => {
+    q.options.forEach((opt, i) => {
       const btn = document.createElement("button");
-      btn.className = "option-btn";
+      btn.className = "opt";
+      btn.dataset.index = i;
       btn.setAttribute("role", "radio");
       btn.setAttribute("aria-checked", "false");
-      btn.setAttribute("data-index", i);
-      btn.innerHTML = `
-        <span class="option-letter" aria-hidden="true">${letters[i]}</span>
-        <span>${escapeHtml(option)}</span>`;
-      btn.addEventListener("click", () => handleAnswer(i, q));
-      optionsGrid.appendChild(btn);
+      btn.innerHTML = `<span class="opt-letter" aria-hidden="true">${letters[i]}</span><span>${esc(opt)}</span>`;
+      btn.addEventListener("click", () => pickAnswer(i, q));
+      opts.appendChild(btn);
     });
   }
 
-  // Hide explanation and next button
-  const explanationBox = $("explanation-box");
-  if (explanationBox) explanationBox.hidden = true;
-  const nextBtn = $("next-btn");
-  if (nextBtn) nextBtn.hidden = true;
+  hide("explanation");
+  hide("next-btn");
 }
 
-/**
- * Handle a user selecting an answer.
- * @param {number} selectedIdx - Index of selected option (0–3)
- * @param {Object} question - Current question data
- */
-function handleAnswer(selectedIdx, question) {
-  const optionsGrid = $("options-grid");
-  const explanationBox = $("explanation-box");
-  const nextBtn = $("next-btn");
+function pickAnswer(selected, q) {
+  const allOpts = $("options")?.querySelectorAll(".opt") || [];
+  allOpts.forEach((b) => { b.disabled = true; });
 
-  // Disable all options
-  const optBtns = optionsGrid?.querySelectorAll(".option-btn");
-  optBtns?.forEach((btn) => {
-    btn.disabled = true;
-    btn.setAttribute("aria-checked", "false");
-  });
+  const isCorrect = selected === q.correct;
 
-  const isCorrect = selectedIdx === question.correct;
-
-  // Mark correct / wrong
-  if (optBtns) {
-    optBtns[selectedIdx]?.classList.add(isCorrect ? "correct" : "wrong");
-    optBtns[selectedIdx]?.setAttribute("aria-checked", "true");
-    if (!isCorrect) {
-      optBtns[question.correct]?.classList.add("correct");
-    }
-  }
+  allOpts[selected]?.classList.add(isCorrect ? "correct" : "wrong");
+  allOpts[selected]?.setAttribute("aria-checked", "true");
+  if (!isCorrect) allOpts[q.correct]?.classList.add("correct");
 
   if (isCorrect) {
-    state.score++;
-    const scoreDisplay = $("quiz-score-display");
-    if (scoreDisplay) scoreDisplay.textContent = `Score: ${state.score}`;
+    state.quiz.score++;
+    if ($("q-score")) $("q-score").textContent = `⭐ ${state.quiz.score}`;
   }
 
-  // Show explanation
-  if (explanationBox) {
-    explanationBox.innerHTML = `
-      <strong>${isCorrect ? "✅ Correct!" : "❌ Not quite!"}</strong><br/>
-      ${escapeHtml(question.explanation)}`;
-    explanationBox.hidden = false;
+  const expBox = $("explanation");
+  if (expBox) {
+    expBox.innerHTML = `<strong>${isCorrect ? "✅ Correct!" : "❌ Not quite!"}</strong> ${esc(q.explanation)}`;
+    show("explanation");
   }
 
-  // Show next / finish button
-  const isLast = state.currentQuestion >= state.quizQuestions.length - 1;
+  const isLast = state.quiz.current >= state.quiz.questions.length - 1;
+  const nextBtn = $("next-btn");
   if (nextBtn) {
-    nextBtn.textContent = isLast ? "See Results 🏆" : "Next Question →";
-    nextBtn.hidden = false;
+    nextBtn.textContent = isLast ? "See Results 🏆" : "Next →";
+    show("next-btn");
     nextBtn.focus();
   }
 }
 
-/** Show the quiz results screen. */
-function showQuizResults() {
-  const container = $("quiz-container");
-  const results = $("quiz-results");
-
-  if (container) container.hidden = true;
-
-  const total = state.quizQuestions.length;
-  const pct = Math.round((state.score / total) * 100);
-
-  let icon, title, message;
-  if (pct === 100) {
-    icon = "🏆"; title = "Perfect Score!";
-    message = "Outstanding! You're a civic education champion.";
-  } else if (pct >= 80) {
-    icon = "🌟"; title = "Excellent!";
-    message = "Great knowledge of the election process! Review the timeline to fill any gaps.";
-  } else if (pct >= 60) {
-    icon = "👍"; title = "Good Job!";
-    message = "You know the basics. Explore the Election Timeline to learn more.";
+function nextQ() {
+  state.quiz.current++;
+  if (state.quiz.current < state.quiz.questions.length) {
+    renderQ();
   } else {
-    icon = "📚"; title = "Keep Learning!";
-    message = "Don't worry — use the Election Timeline and Voter Guide to build your knowledge, then try again!";
-  }
-
-  if ($("result-icon")) $("result-icon").textContent = icon;
-  if ($("result-title")) $("result-title").textContent = title;
-  if ($("result-score")) $("result-score").textContent = `${state.score} / ${total} correct (${pct}%)`;
-  if ($("result-message")) $("result-message").textContent = message;
-
-  if (results) {
-    results.hidden = false;
-    results.focus?.();
+    showResults();
   }
 }
 
-/** Reset the quiz to the start screen. */
+function showResults() {
+  hide("quiz-container");
+  const pct   = Math.round((state.quiz.score / state.quiz.questions.length) * 100);
+  const total = state.quiz.questions.length;
+
+  let icon, title, msg;
+  if (pct === 100) { icon = "🏆"; title = "Perfect!"; msg = "You're a civic legend 🔥 Absolutely crushed it!"; }
+  else if (pct >= 80) { icon = "🌟"; title = "Excellent!"; msg = "Top-tier knowledge! A little more and you'll be unstoppable."; }
+  else if (pct >= 60) { icon = "👍"; title = "Not bad!"; msg = "Solid effort! Check the Timeline to fill your gaps."; }
+  else { icon = "📚"; title = "Keep going!"; msg = "Elections can be complex — use the Timeline & Guide, then try again!"; }
+
+  if ($("res-icon"))  $("res-icon").textContent  = icon;
+  if ($("res-title")) $("res-title").textContent  = title;
+  if ($("res-score")) $("res-score").textContent  = `${state.quiz.score}/${total} correct · ${pct}%`;
+  if ($("res-msg"))   $("res-msg").textContent    = msg;
+
+  show("quiz-results");
+
+  // Confetti when score ≥ 60%
+  if (pct >= 60) launchConfetti();
+}
+
+function launchConfetti() {
+  const wrap = $("confetti-wrap");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  const colors = ["#7C3AED","#EC4899","#06B6D4","#10B981","#F59E0B","#A78BFA"];
+  for (let i = 0; i < 50; i++) {
+    const c = document.createElement("div");
+    c.className = "confetti-piece";
+    c.style.cssText = `
+      left:${Math.random()*100}%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-delay:${Math.random()*1}s;
+      animation-duration:${1.5+Math.random()*1}s;
+      width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;
+      border-radius:${Math.random()>.5?"50%":"2px"};`;
+    wrap.appendChild(c);
+  }
+}
+
 function resetQuiz() {
-  const startScreen = $("quiz-start-screen");
-  const container = $("quiz-container");
-  const results = $("quiz-results");
-  const loading = $("quiz-loading");
-
-  if (startScreen) startScreen.style.display = "";
-  if (container) container.hidden = true;
-  if (results) results.hidden = true;
-  if (loading) loading.hidden = true;
-
-  state.quizQuestions = [];
-  state.currentQuestion = 0;
-  state.score = 0;
+  hide("quiz-results");
+  hide("quiz-container");
+  hide("quiz-loading");
+  show("quiz-start");
+  state.quiz = { questions: [], current: 0, score: 0 };
 }
 
-/** Show a quiz error message. */
-function showQuizError(message) {
-  const startScreen = $("quiz-start-screen");
-  if (startScreen) startScreen.style.display = "";
-
-  // Brief accessible alert
-  const errEl = document.createElement("div");
-  errEl.setAttribute("role", "alert");
-  errEl.setAttribute("aria-live", "assertive");
-  errEl.style.cssText = `
-    color:var(--clr-danger);
-    background:rgba(239,68,68,0.1);
-    border:1px solid rgba(239,68,68,0.3);
-    border-radius:var(--radius-md);
-    padding:12px 16px;
-    margin-top:16px;
-    text-align:center;
-    font-size:0.875rem;`;
-  errEl.textContent = `⚠️ ${message}`;
-
-  startScreen?.appendChild(errEl);
-  setTimeout(() => errEl.remove(), 5000);
+function quizErr(msg) {
+  show("quiz-start");
+  const existing = document.querySelector(".quiz-err");
+  if (existing) existing.remove();
+  const el = document.createElement("div");
+  el.className = "quiz-err";
+  el.setAttribute("role", "alert");
+  el.style.cssText = `color:var(--red);background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
+    border-radius:var(--r-lg);padding:12px 16px;margin-top:16px;text-align:center;font-size:.875rem;`;
+  el.textContent = `⚠️ ${msg}`;
+  $("quiz-start")?.appendChild(el);
+  setTimeout(() => el.remove(), 5000);
 }
 
-/* ── High Contrast Toggle ────────────────────────────────────────────── */
-function initContrastToggle() {
+/* ══ HIGH CONTRAST ══════════════════════════════════════════════════════ */
+function initContrast() {
   const btn = $("contrast-toggle");
   if (!btn) return;
-
-  // Restore preference
-  const saved = localStorage.getItem("electwise-contrast");
-  if (saved === "high") {
-    document.documentElement.classList.add("high-contrast");
+  if (localStorage.getItem("ew-contrast") === "1") {
+    document.documentElement.classList.add("hc");
     btn.setAttribute("aria-pressed", "true");
   }
-
   btn.addEventListener("click", () => {
-    const isHigh = document.documentElement.classList.toggle("high-contrast");
-    btn.setAttribute("aria-pressed", isHigh.toString());
-    localStorage.setItem("electwise-contrast", isHigh ? "high" : "normal");
+    const on = document.documentElement.classList.toggle("hc");
+    btn.setAttribute("aria-pressed", on.toString());
+    localStorage.setItem("ew-contrast", on ? "1" : "0");
   });
 }
 
-/* ── Utility ─────────────────────────────────────────────────────────── */
-
-/**
- * Escape HTML special characters to prevent XSS.
- * @param {string} str
- * @returns {string}
- */
-function escapeHtml(str) {
-  if (typeof str !== "string") return "";
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#x27;");
+/* ══ UTILS ══════════════════════════════════════════════════════════════ */
+function esc(s) {
+  if (typeof s !== "string") return "";
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+           .replace(/"/g,"&quot;").replace(/'/g,"&#x27;");
 }
+function show(id) { const el = $(id); if (el) el.hidden = false; }
+function hide(id) { const el = $(id); if (el) el.hidden = true; }

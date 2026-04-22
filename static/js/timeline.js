@@ -1,184 +1,166 @@
 /**
- * ElectWise AI — Timeline Module
- * Handles fetching and rendering the interactive election timeline.
+ * ElectWise — Timeline Module (Gen Z Edition)
+ * Horizontal scrollable election phases with drag-scroll & animated detail panel.
  */
-
 "use strict";
 
-/* ── Timeline renderer ─────────────────────────────────────────────── */
-
-/**
- * Fetch timeline data from the backend and render it.
- * @param {string} country - 'India' | 'USA' | 'UK'
- */
+/* ── Load & Render ──────────────────────────────────────────────────── */
 async function loadTimeline(country) {
-  const container = document.getElementById("timeline-container");
-  const loading = document.getElementById("timeline-loading");
-  const titleEl = document.getElementById("timeline-title");
-  const descEl = document.getElementById("timeline-desc");
+  const track    = document.getElementById("tl-track");
+  const loading  = document.getElementById("tl-loading");
+  const trackWrap= document.querySelector(".tl-track-wrap");
+  const detailEl = document.getElementById("tl-detail");
+  const titleEl  = document.getElementById("timeline-title");
+  const descEl   = document.getElementById("timeline-desc");
+  if (!track) return;
 
-  if (!container) return;
-
-  // Show loading state
-  loading.hidden = false;
-  container.innerHTML = "";
+  // Show skeleton, hide real track while loading
+  if (loading)   { loading.hidden = false; }
+  if (trackWrap) { trackWrap.style.visibility = "hidden"; trackWrap.style.height = "0"; }
+  track.innerHTML = "";
+  if (detailEl) detailEl.hidden = true;
 
   try {
-    const res = await fetch(`/api/timeline?country=${encodeURIComponent(country)}`);
+    const res  = await fetch(`/api/timeline?country=${encodeURIComponent(country)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    if (data.status !== "success") throw new Error(data.error);
 
-    if (data.status !== "success") throw new Error(data.error || "Unknown error");
+    // Hide skeleton, reveal track
+    if (loading)   { loading.hidden = true; }
+    if (trackWrap) { trackWrap.style.visibility = ""; trackWrap.style.height = ""; }
 
     const { timeline } = data;
-
-    // Update header
     if (titleEl) titleEl.textContent = timeline.title;
-    if (descEl) descEl.textContent = timeline.description;
+    if (descEl)  descEl.textContent  = "Tap any phase card to explore details 👇  ·  Drag to scroll →";
 
-    loading.hidden = true;
-
-    // Render each step with staggered animation
+    // Render cards
     timeline.steps.forEach((step, idx) => {
-      const el = createTimelineStep(step, idx);
-      container.appendChild(el);
+      const card = mkCard(step, idx, country);
+      track.appendChild(card);
     });
 
+    initDragScroll(trackWrap);
+
   } catch (err) {
-    loading.hidden = true;
-    container.innerHTML = `
-      <div role="alert" style="text-align:center;padding:40px;color:var(--clr-text-muted)">
-        <p style="font-size:2rem;margin-bottom:12px">⚠️</p>
-        <p>Failed to load timeline. Please check your connection and try again.</p>
-        <button onclick="loadTimeline('${country}')"
-          style="margin-top:16px;padding:10px 24px;border-radius:999px;
-                 background:var(--clr-primary);border:none;color:#fff;cursor:pointer;font-weight:600">
-          Retry
-        </button>
-      </div>`;
-    console.error("Timeline load error:", err);
+    if (loading)   { loading.hidden = true; }
+    if (trackWrap) { trackWrap.style.visibility = ""; trackWrap.style.height = ""; }
+    track.innerHTML = `<div role="alert" style="padding:40px;text-align:center;color:var(--tx2)">
+      <p style="font-size:2rem;margin-bottom:12px">⚠️</p>
+      <p>Failed to load timeline.</p>
+      <button onclick="loadTimeline('${country}')"
+        style="margin-top:12px;padding:10px 24px;border-radius:999px;background:var(--violet);
+               border:none;color:#fff;cursor:pointer;font-weight:700">
+        Retry
+      </button>
+    </div>`;
+    console.error("Timeline error:", err);
   }
 }
 
-/**
- * Create a single timeline step DOM element.
- * @param {Object} step - Step data from API
- * @param {number} idx - Step index (for animation delay)
- * @returns {HTMLElement}
- */
-function createTimelineStep(step, idx) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "timeline-step";
-  wrapper.setAttribute("role", "listitem");
-  wrapper.setAttribute("tabindex", "0");
-  wrapper.setAttribute("aria-label", `Phase ${step.id}: ${step.title}`);
-  wrapper.style.animationDelay = `${idx * 80}ms`;
+/* ── Card factory ──────────────────────────────────────────────────── */
+function mkCard(step, idx, country) {
+  const card = document.createElement("div");
+  card.className = "tl-card";
+  card.setAttribute("role", "listitem");
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("aria-label", `Phase ${step.id}: ${step.title}`);
+  card.style.animationDelay = `${idx * 60}ms`;
 
-  wrapper.innerHTML = `
-    <div class="step-connector">
-      <div class="step-icon"
-           style="border-color:${step.color};box-shadow:0 0 16px ${step.color}40"
-           aria-hidden="true">
-        ${step.icon}
-      </div>
-    </div>
-    <div class="step-card">
-      <div class="step-meta">
-        <span class="step-phase-badge"
-              style="color:${step.color};border-color:${step.color}40;background:${step.color}15">
-          ${step.phase}
-        </span>
-        <span class="step-duration">⏱ ${escapeHtml(step.duration)}</span>
-      </div>
-      <h3 class="step-title">${escapeHtml(step.title)}</h3>
-      <p class="step-desc">${escapeHtml(step.description)}</p>
-      <span class="step-more" aria-hidden="true">View details →</span>
-    </div>`;
+  card.innerHTML = `
+    <span class="tl-card-icon" aria-hidden="true">${step.icon}</span>
+    <p class="tl-card-num">Phase ${step.id}</p>
+    <span class="tl-card-phase" style="color:${step.color};border-color:${step.color}40;background:${step.color}15">
+      ${esc(step.phase)}
+    </span>
+    <h3 class="tl-card-title">${esc(step.title)}</h3>
+    <p class="tl-card-dur">⏱ ${esc(step.duration)}</p>
+    <p class="tl-card-more" aria-hidden="true">Details →</p>`;
 
-  // Open modal on click or Enter/Space
-  const openModal = () => showStepModal(step);
-  wrapper.addEventListener("click", openModal);
-  wrapper.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      openModal();
-    }
+  const open = () => showDetail(step);
+  card.addEventListener("click", open);
+  card.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
   });
 
-  return wrapper;
+  return card;
 }
 
-/* ── Step Modal ─────────────────────────────────────────────────────── */
+/* ── Detail panel ──────────────────────────────────────────────────── */
+function showDetail(step) {
+  const panel = document.getElementById("tl-detail");
+  if (!panel) return;
 
-/**
- * Display the step detail modal.
- * @param {Object} step - Step data
- */
-function showStepModal(step) {
-  const modal = document.getElementById("step-modal");
-  if (!modal) return;
+  // Highlight active card
+  document.querySelectorAll(".tl-card").forEach((c) => c.classList.remove("active-card"));
+  const cards = document.querySelectorAll(".tl-card");
+  if (cards[step.id - 1]) cards[step.id - 1].classList.add("active-card");
 
-  document.getElementById("modal-icon").textContent = step.icon;
-  document.getElementById("modal-title").textContent = step.title;
-  document.getElementById("modal-phase").textContent = `Phase ${step.id} — ${step.phase}`;
-  document.getElementById("modal-desc").textContent = step.description;
-  document.getElementById("modal-duration").textContent = step.duration;
+  document.getElementById("d-icon").textContent  = step.icon;
+  document.getElementById("d-phase").textContent = `Phase ${step.id} — ${step.phase}`;
+  document.getElementById("d-title").textContent = step.title;
+  document.getElementById("d-dur").innerHTML     = `⏱ <span>${esc(step.duration)}</span>`;
+  document.getElementById("d-desc").textContent  = step.description;
 
-  const detailsList = document.getElementById("modal-details");
-  detailsList.innerHTML = "";
-  step.details.forEach((detail) => {
+  const facts = document.getElementById("d-facts");
+  facts.innerHTML = "";
+  step.details.forEach((d) => {
     const li = document.createElement("li");
-    li.textContent = detail;
-    detailsList.appendChild(li);
+    li.textContent = d;
+    facts.appendChild(li);
   });
 
-  modal.hidden = false;
-  document.body.style.overflow = "hidden";
+  panel.hidden = false;
 
-  // Focus the close button for accessibility
-  const closeBtn = document.getElementById("modal-close");
-  if (closeBtn) closeBtn.focus();
+  // Smooth scroll to detail panel
+  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  // Focus close button for keyboard a11y
+  document.getElementById("close-detail")?.focus();
 }
 
-/** Close the step detail modal. */
-function closeStepModal() {
-  const modal = document.getElementById("step-modal");
-  if (!modal) return;
-  modal.hidden = true;
-  document.body.style.overflow = "";
-}
-
-/* ── Modal event listeners ──────────────────────────────────────────── */
-
+/* ── Close detail ──────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", () => {
-  const closeBtn = document.getElementById("modal-close");
-  const backdrop = document.getElementById("modal-backdrop");
+  document.getElementById("close-detail")?.addEventListener("click", () => {
+    const panel = document.getElementById("tl-detail");
+    if (panel) panel.hidden = true;
+    document.querySelectorAll(".tl-card").forEach((c) => c.classList.remove("active-card"));
+  });
 
-  if (closeBtn) closeBtn.addEventListener("click", closeStepModal);
-  if (backdrop) backdrop.addEventListener("click", closeStepModal);
-
-  // Close on Escape
   document.addEventListener("keydown", (e) => {
-    const modal = document.getElementById("step-modal");
-    if (e.key === "Escape" && modal && !modal.hidden) {
-      closeStepModal();
+    const panel = document.getElementById("tl-detail");
+    if (e.key === "Escape" && panel && !panel.hidden) {
+      panel.hidden = true;
+      document.querySelectorAll(".tl-card").forEach((c) => c.classList.remove("active-card"));
     }
   });
 });
 
-/* ── Utility ────────────────────────────────────────────────────────── */
+/* ── Drag-to-scroll ─────────────────────────────────────────────────── */
+function initDragScroll(el) {
+  if (!el) return;
+  let isDown = false, startX = 0, scrollLeft = 0;
 
-/**
- * Escape HTML special characters to prevent XSS.
- * @param {string} str
- * @returns {string}
- */
-function escapeHtml(str) {
-  if (typeof str !== "string") return "";
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#x27;");
+  el.addEventListener("mousedown", (e) => {
+    isDown = true;
+    el.style.userSelect = "none";
+    startX = e.pageX - el.offsetLeft;
+    scrollLeft = el.scrollLeft;
+  });
+  el.addEventListener("mouseleave", () => { isDown = false; });
+  el.addEventListener("mouseup",    () => { isDown = false; el.style.userSelect = ""; });
+  el.addEventListener("mousemove",  (e) => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x    = e.pageX - el.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    el.scrollLeft = scrollLeft - walk;
+  });
+}
+
+/* ── Utility ────────────────────────────────────────────────────────── */
+function esc(s) {
+  if (typeof s !== "string") return "";
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+           .replace(/"/g,"&quot;").replace(/'/g,"&#x27;");
 }
