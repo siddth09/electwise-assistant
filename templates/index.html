@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="ElectWise — your AI-powered civic guide. Learn elections, quiz yourself, and vote with confidence." />
+  <meta name="description" content="ElectWise — your AI-powered civic guide. Interactive timelines, live constituency data, viral social tools, and a gamified civics quiz built for India's Gen Z voters." />
   <title>ElectWise — Know Your Vote 🗳️</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,7 +12,7 @@
 </head>
 <body>
 
-  <a href="#main" class="skip-nav" id="skip-nav">Skip to content</a>
+  <a href="#main" class="skip-nav" id="skip-nav" data-en="Skip to content" data-hi="सामग्री पर जाएं">Skip to content</a>
 
   <!-- Noise texture overlay -->
   <div class="noise" aria-hidden="true"></div>
@@ -37,20 +37,26 @@
       <!-- Pill nav -->
       <nav class="pill-nav" aria-label="Main navigation" role="tablist">
         <button class="pill active" data-tab="chat" role="tab" aria-selected="true" aria-controls="tab-chat" id="pill-chat">
-          <span>💬</span> Ask AI
+          <span>💬</span> <span data-en="Ask AI" data-hi="AI पूछें">Ask AI</span>
         </button>
         <button class="pill" data-tab="timeline" role="tab" aria-selected="false" aria-controls="tab-timeline" id="pill-timeline">
-          <span>📅</span> Timeline
+          <span>📅</span> <span data-en="Timeline" data-hi="टाइमलाइन">Timeline</span>
         </button>
         <button class="pill" data-tab="guide" role="tab" aria-selected="false" aria-controls="tab-guide" id="pill-guide">
-          <span>✅</span> How to Vote
+          <span>✅</span> <span data-en="How to Vote" data-hi="वोट कैसे करें">How to Vote</span>
         </button>
         <button class="pill" data-tab="quiz" role="tab" aria-selected="false" aria-controls="tab-quiz" id="pill-quiz">
-          <span>🧠</span> Quiz
+          <span>🧠</span> <span data-en="Quiz" data-hi="क्विज़">Quiz</span>
+        </button>
+        <button class="pill pill-local" data-tab="local" role="tab" aria-selected="false" aria-controls="tab-local" id="pill-local">
+          <span>🏘️</span> <span data-en="Local" data-hi="स्थानीय">Local</span>
+        </button>
+        <button class="pill pill-viral" data-tab="viral" role="tab" aria-selected="false" aria-controls="tab-viral" id="pill-viral">
+          <span>🔥</span> <span data-en="Viral" data-hi="वायरल">Viral</span>
         </button>
       </nav>
 
-      <!-- Country + contrast -->
+      <!-- Country + Language + Contrast -->
       <div class="hdr-actions">
         <label for="country-select" class="sr-only">Select country</label>
         <select id="country-select" name="country" class="country-select" aria-label="Select country">
@@ -58,6 +64,20 @@
           <option value="USA">🇺🇸 USA</option>
           <option value="UK">🇬🇧 UK</option>
         </select>
+
+        <!-- Language toggle (India-specific) -->
+        <div class="lang-wrap">
+          <button class="icon-btn lang-btn" id="lang-btn" aria-label="Switch language" aria-haspopup="listbox" aria-expanded="false" title="Switch language">EN</button>
+          <select id="lang-select" class="lang-select" aria-label="Select Indian language" style="display:none">
+            <option value="en">English</option>
+            <option value="hi">हिंदी</option>
+            <option value="ta">தமிழ்</option>
+            <option value="te">తెలుగు</option>
+            <option value="bn">বাংলা</option>
+            <option value="mr">मराठी</option>
+          </select>
+        </div>
+
         <button class="icon-btn" id="contrast-toggle" aria-label="Toggle high contrast" aria-pressed="false" title="High contrast">◑</button>
       </div>
     </div>
@@ -70,13 +90,13 @@
     <section class="hero" aria-label="Introduction">
       <div class="hero-eyebrow">
         <span class="live-dot" aria-hidden="true"></span>
-        Powered by Google Gemini 2.0 Flash
+        <span data-en="Powered by Google Gemini 2.0 Flash" data-hi="Google Gemini 2.0 Flash द्वारा संचालित">Powered by Google Gemini 2.0 Flash</span>
       </div>
       <h1 class="hero-h1">
-        Know Your<br/>
-        <span class="grad-text">Vote.</span>
+        <span data-en="Know Your" data-hi="जानो अपना">Know Your</span><br/>
+        <span class="grad-text" data-en="Vote." data-hi="वोट।">Vote.</span>
       </h1>
-      <p class="hero-sub">Elections explained by AI — interactive timelines, quizzes & a civic guide built for the next generation of voters 🗳️</p>
+      <p class="hero-sub" data-en="Elections explained by AI — interactive timelines, hyper-local data, viral social tools &amp; a gamified quiz built for India's next generation of voters 🗳️" data-hi="AI द्वारा चुनाव समझाए — इंटरैक्टिव टाइमलाइन, हाइपर-लोकल डेटा, वायरल सोशल टूल्स और क्विज़ 🗳️">Elections explained by AI — interactive timelines, hyper-local data, viral social tools &amp; a gamified quiz built for India's next generation of voters 🗳️</p>
 
       <div class="hero-chips" role="list" aria-label="Features">
         <span class="hchip" role="listitem">🇮🇳 India</span>
@@ -84,6 +104,8 @@
         <span class="hchip" role="listitem">🇬🇧 UK</span>
         <span class="hchip accent" role="listitem">✨ AI-powered</span>
         <span class="hchip" role="listitem">🎯 Non-partisan</span>
+        <span class="hchip" role="listitem">🏘️ Hyper-local</span>
+        <span class="hchip" role="listitem">🔥 Go Viral</span>
       </div>
     </section>
 
@@ -96,38 +118,38 @@
 
           <!-- Sidebar suggestions -->
           <aside class="suggestions-panel" aria-label="Suggested questions">
-            <p class="panel-label">🔥 Quick asks</p>
+            <p class="panel-label" data-en="🔥 Quick asks" data-hi="🔥 तुरंत पूछें">🔥 Quick asks</p>
             <div class="suggestions" role="list">
               <button class="suggestion" data-prompt="How do I register to vote in India?" role="listitem">
-                📋 How to register to vote?
+                📋 <span data-en="How to register to vote?" data-hi="वोटर रजिस्ट्रेशन कैसे?">How to register to vote?</span>
               </button>
               <button class="suggestion" data-prompt="What is an EVM and how does it work?" role="listitem">
-                🖥️ What is an EVM?
+                🖥️ <span data-en="What is an EVM?" data-hi="EVM क्या है?">What is an EVM?</span>
               </button>
               <button class="suggestion" data-prompt="What is NOTA and how do I use it?" role="listitem">
-                ❌ What is NOTA?
+                ❌ <span data-en="What is NOTA?" data-hi="NOTA क्या है?">What is NOTA?</span>
               </button>
               <button class="suggestion" data-prompt="What documents do I need at the polling booth?" role="listitem">
-                🪪 Docs needed to vote
+                🪪 <span data-en="Docs needed to vote" data-hi="वोट के लिए दस्तावेज़">Docs needed to vote</span>
               </button>
               <button class="suggestion" data-prompt="How are votes counted in India?" role="listitem">
-                🔢 How votes are counted
+                🔢 <span data-en="How votes are counted" data-hi="वोट कैसे गिने जाते हैं">How votes are counted</span>
               </button>
               <button class="suggestion" data-prompt="What is the Model Code of Conduct?" role="listitem">
-                📜 Model Code of Conduct
+                📜 <span data-en="Model Code of Conduct" data-hi="आदर्श आचार संहिता">Model Code of Conduct</span>
               </button>
               <button class="suggestion" data-prompt="How does the Electoral College work in the USA?" role="listitem">
-                🗺️ US Electoral College
+                🗺️ <span data-en="US Electoral College" data-hi="US इलेक्टोरल कॉलेज">US Electoral College</span>
               </button>
               <button class="suggestion" data-prompt="Who can vote in India? Eligibility criteria." role="listitem">
-                ✅ Voter eligibility
+                ✅ <span data-en="Voter eligibility" data-hi="मतदाता पात्रता">Voter eligibility</span>
               </button>
             </div>
             <div class="ai-badge" aria-hidden="true">
               <span>⚡</span>
               <div>
                 <strong>ElectWise AI</strong>
-                <p>Non-partisan · Always available</p>
+                <p data-en="Non-partisan · Always available" data-hi="निष्पक्ष · हमेशा उपलब्ध">Non-partisan · Always available</p>
               </div>
             </div>
           </aside>
@@ -169,6 +191,8 @@
                   id="chat-input"
                   rows="1"
                   maxlength="2000"
+                  data-en-placeholder="Ask anything about elections…"
+                  data-hi-placeholder="चुनाव के बारे में कुछ भी पूछें…"
                   placeholder="Ask anything about elections…"
                   aria-label="Your question"
                   aria-required="true"
@@ -188,20 +212,19 @@
       <!-- ── TIMELINE ───────────────────────────────────────────────── -->
       <section id="tab-timeline" class="tab hidden" role="tabpanel" aria-labelledby="pill-timeline">
         <div class="section-top">
-          <h2 class="sec-title" id="timeline-title">Election Timeline</h2>
-          <p class="sec-sub" id="timeline-desc">Tap any phase to explore details 👇</p>
+          <h2 class="sec-title" id="timeline-title" data-en="Election Timeline" data-hi="चुनाव टाइमलाइन">Election Timeline</h2>
+          <p class="sec-sub" id="timeline-desc" data-en="Tap any phase to explore details 👇" data-hi="विवरण के लिए किसी चरण पर टैप करें 👇">Tap any phase to explore details 👇</p>
         </div>
 
         <div id="tl-loading" class="skeleton-wrap" hidden aria-busy="true" aria-label="Loading timeline">
-          <div class="sk-card"></div><div class="sk-card"></div><div class="sk-card"></div>
+          <div class="sk-card"></div><div class="sk-card"></div><div class="sk-card"></div><div class="sk-card"></div>
         </div>
 
-        <!-- Horizontal scroll track -->
         <div class="tl-track-wrap" aria-label="Scroll to see all election phases">
           <div id="tl-track" class="tl-track" role="list" aria-label="Election phases"></div>
         </div>
 
-        <!-- Detail panel (shown when a step is clicked) -->
+        <!-- Detail panel -->
         <div id="tl-detail" class="tl-detail" hidden aria-live="polite">
           <button class="close-detail" id="close-detail" aria-label="Close detail panel">✕ Close</button>
           <div class="detail-inner">
@@ -214,7 +237,7 @@
               </div>
             </div>
             <p class="detail-desc" id="d-desc"></p>
-            <h4 class="detail-kf-label">Key facts</h4>
+            <h4 class="detail-kf-label" data-en="Key facts" data-hi="मुख्य तथ्य">Key facts</h4>
             <ul class="detail-facts" id="d-facts"></ul>
           </div>
         </div>
@@ -223,8 +246,8 @@
       <!-- ── HOW TO VOTE ─────────────────────────────────────────────── -->
       <section id="tab-guide" class="tab hidden" role="tabpanel" aria-labelledby="pill-guide">
         <div class="section-top">
-          <h2 class="sec-title" id="guide-title">How to Vote</h2>
-          <p class="sec-sub">Your step-by-step guide to casting your ballot ✅</p>
+          <h2 class="sec-title" id="guide-title" data-en="How to Vote" data-hi="वोट कैसे करें">How to Vote</h2>
+          <p class="sec-sub" data-en="Your step-by-step guide to casting your ballot ✅" data-hi="मतदान का चरण-दर-चरण गाइड ✅">Your step-by-step guide to casting your ballot ✅</p>
         </div>
         <div id="guide-grid" class="guide-grid" role="list" aria-label="Voter registration steps"></div>
       </section>
@@ -235,11 +258,11 @@
         <!-- Start screen -->
         <div id="quiz-start" class="quiz-start">
           <div class="quiz-hero-icon" aria-hidden="true">🧠</div>
-          <h2 class="sec-title">Civics Quiz</h2>
-          <p class="sec-sub">Test your election IQ — AI-generated questions just for you</p>
+          <h2 class="sec-title" data-en="Civics Quiz" data-hi="नागरिक क्विज़">Civics Quiz</h2>
+          <p class="sec-sub" data-en="Test your election IQ — AI-generated questions just for you" data-hi="अपना चुनाव IQ जाँचें — AI-निर्मित प्रश्न">Test your election IQ — AI-generated questions just for you</p>
 
           <div class="diff-group" role="group" aria-labelledby="diff-label">
-            <p class="panel-label" id="diff-label">Choose difficulty</p>
+            <p class="panel-label" id="diff-label" data-en="Choose difficulty" data-hi="कठिनाई चुनें">Choose difficulty</p>
             <div class="diff-btns">
               <button class="diff-btn" data-diff="easy" aria-pressed="false" id="diff-easy">🟢 Easy</button>
               <button class="diff-btn active" data-diff="medium" aria-pressed="true" id="diff-medium">🟡 Medium</button>
@@ -248,7 +271,7 @@
           </div>
 
           <button class="cta-btn pulse" id="gen-quiz-btn" aria-label="Generate quiz">
-            Generate Quiz ✨
+            <span data-en="Generate Quiz ✨" data-hi="क्विज़ बनाएं ✨">Generate Quiz ✨</span>
           </button>
         </div>
 
@@ -257,7 +280,7 @@
           <div class="quiz-load-anim" aria-hidden="true">
             <span></span><span></span><span></span><span></span><span></span>
           </div>
-          <p>Gemini is crafting your quiz…</p>
+          <p data-en="Gemini is crafting your quiz…" data-hi="Gemini आपका क्विज़ बना रहा है…">Gemini is crafting your quiz…</p>
         </div>
 
         <!-- Question card -->
@@ -294,23 +317,260 @@
         </div>
 
       </section>
+
+      <!-- ══════════════════════════════════════════════════════════════ -->
+      <!-- ── LOCAL TAB (Hyper-Local Constituency Features) ──────────── -->
+      <!-- ══════════════════════════════════════════════════════════════ -->
+      <section id="tab-local" class="tab hidden" role="tabpanel" aria-labelledby="pill-local">
+        <div class="section-top">
+          <h2 class="sec-title" data-en="Your Constituency" data-hi="आपका निर्वाचन क्षेत्र">Your Constituency</h2>
+          <p class="sec-sub" data-en="Hyper-local data — candidates, booth, issues &amp; EVM practice" data-hi="हाइपर-लोकल डेटा — उम्मीदवार, बूथ, मुद्दे व EVM अभ्यास">Hyper-local data — candidates, booth, issues &amp; EVM practice</p>
+        </div>
+
+        <!-- Constituency selector -->
+        <div class="local-selector">
+          <label for="constituency-select" class="panel-label" data-en="📍 Select your constituency (India)" data-hi="📍 अपना निर्वाचन क्षेत्र चुनें (भारत)">📍 Select your constituency (India)</label>
+          <select id="constituency-select" class="country-select" aria-label="Select constituency" style="width:100%;max-width:400px;margin-top:8px;font-size:.95rem"></select>
+        </div>
+
+        <!-- ── Candidate Vibe Check ─── -->
+        <div class="local-section" id="cand-section">
+          <h3 class="local-section-label" data-en="🎯 Candidate Vibe Check" data-hi="🎯 उम्मीदवार वाइब चेक">🎯 Candidate Vibe Check</h3>
+          <p class="sec-sub" style="margin-bottom:1rem" data-en="Swipe through candidates — top 3 pillars · record · endorsements" data-hi="उम्मीदवारों को स्वाइप करें — शीर्ष 3 नीतियां · रिकॉर्ड · समर्थन">Swipe through candidates — top 3 pillars · record · endorsements</p>
+          <div class="cand-viewport" role="region" aria-label="Candidate cards">
+            <div id="candidates-wrap" class="candidates-wrap" aria-live="polite"></div>
+            <div class="cand-nav" aria-label="Candidate navigation">
+              <button class="cand-arrow" id="cand-prev" aria-label="Previous candidate">‹</button>
+              <div id="cand-dots" class="cand-dots" role="group" aria-label="Candidate dots"></div>
+              <button class="cand-arrow" id="cand-next" aria-label="Next candidate">›</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Booth Navigator ─── -->
+        <div class="local-section local-two-col">
+          <div class="local-col">
+            <h3 class="local-section-label" data-en="📍 Polling Booth Navigator" data-hi="📍 मतदान बूथ नेविगेटर">📍 Polling Booth Navigator</h3>
+            <div id="booth-wrap" aria-live="polite"></div>
+          </div>
+
+          <!-- ── Crowd Reporter ─── -->
+          <div class="local-col">
+            <h3 class="local-section-label" data-en="⏱️ Live Crowd Reporter" data-hi="⏱️ लाइव भीड़ रिपोर्टर">⏱️ Live Crowd Reporter</h3>
+            <div id="crowd-wrap" class="crowd-wrap" aria-label="Crowd reports">
+              <div id="crowd-status" aria-live="polite"></div>
+              <div class="crowd-form">
+                <label for="crowd-wait-input" class="sr-only">Wait time in minutes</label>
+                <input type="number" id="crowd-wait-input" min="0" max="180" placeholder="Wait time (min)" aria-label="Wait time in minutes" class="crowd-input" />
+                <label class="crowd-toggle-label">
+                  <input type="checkbox" id="crowd-crowded-check" />
+                  <span data-en="Very crowded?" data-hi="बहुत भीड़?">Very crowded?</span>
+                </label>
+                <button class="cta-btn" id="crowd-submit-btn" aria-label="Submit crowd report" style="font-size:.85rem;padding:10px 20px">
+                  <span data-en="Report 📣" data-hi="रिपोर्ट करें 📣">Report 📣</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Issue Heatmap ─── -->
+        <div class="local-section">
+          <h3 class="local-section-label" data-en="🌡️ Hyper-Local Issue Heatmap" data-hi="🌡️ हाइपर-लोकल मुद्दा हीटमैप">🌡️ Hyper-Local Issue Heatmap</h3>
+          <div id="issues-wrap" aria-live="polite"></div>
+        </div>
+
+        <!-- ── EVM Sandbox ─── -->
+        <div id="evm-wrap" class="local-section">
+          <h3 class="local-section-label" data-en="🗳️ Interactive EVM Practice Booth" data-hi="🗳️ इंटरैक्टिव EVM अभ्यास बूथ">🗳️ Interactive EVM Practice Booth</h3>
+          <p class="sec-sub" data-en="Practice voting on a digital EVM — zero anxiety on election day!" data-hi="डिजिटल EVM पर वोटिंग का अभ्यास करें!">Practice voting on a digital EVM — zero anxiety on election day!</p>
+          <button class="cta-btn" id="evm-launch-btn" aria-label="Open EVM practice booth" style="margin-top:12px">
+            <span data-en="Launch EVM Practice ⚡" data-hi="EVM अभ्यास शुरू करें ⚡">Launch EVM Practice ⚡</span>
+          </button>
+        </div>
+
+      </section>
+
+      <!-- EVM Overlay (Modal) -->
+      <div id="evm-overlay" class="evm-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="evm-title">
+        <div class="evm-modal">
+          <div class="evm-header">
+            <h2 id="evm-title" data-en="EVM Practice Booth" data-hi="EVM अभ्यास बूथ">🗳️ EVM Practice Booth</h2>
+            <p class="evm-sub" data-en="Press ▶ button next to your choice. VVPAT slip will appear." data-hi="अपनी पसंद के आगे ▶ बटन दबाएं। VVPAT पर्ची दिखेगी।">Press ▶ button next to your choice. VVPAT slip will appear.</p>
+            <button class="close-detail" id="evm-close-btn" aria-label="Close EVM practice">✕ Close</button>
+          </div>
+          <div class="evm-machine" aria-label="Electronic Voting Machine">
+            <div class="evm-screen">
+              <p class="evm-screen-text" data-en="Lok Sabha General Election" data-hi="लोकसभा आम चुनाव">Lok Sabha General Election</p>
+              <p class="evm-screen-sub" data-en="Select ONE candidate" data-hi="एक उम्मीदवार चुनें">Select ONE candidate</p>
+            </div>
+            <div id="evm-candidates" class="evm-candidates" role="radiogroup" aria-label="Candidates"></div>
+            <div id="vvpat-display" class="vvpat-display" hidden aria-live="polite" aria-label="VVPAT confirmation"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════ -->
+      <!-- ── VIRAL TAB (Social Growth Engine) ───────────────────────── -->
+      <!-- ══════════════════════════════════════════════════════════════ -->
+      <section id="tab-viral" class="tab hidden" role="tabpanel" aria-labelledby="pill-viral">
+        <div class="section-top">
+          <h2 class="sec-title" data-en="Go Viral 🔥" data-hi="वायरल हों 🔥">Go Viral 🔥</h2>
+          <p class="sec-sub" data-en="Civic duty, made shareable — for Instagram, WhatsApp &amp; Snap" data-hi="नागरिक कर्तव्य, शेयर करने योग्य — Instagram, WhatsApp व Snap के लिए">Civic duty, made shareable — for Instagram, WhatsApp &amp; Snap</p>
+        </div>
+
+        <div class="viral-grid">
+
+          <!-- ── Voter Match Wrapped ─── -->
+          <div class="viral-card vm-card" aria-label="Voter Match feature">
+            <h3 class="viral-card-title" data-en="🎯 Voter Match — Your Political Vibe" data-hi="🎯 वोटर मैच — आपकी राजनीतिक वाइब">🎯 Voter Match — Your Political Vibe</h3>
+            <p class="viral-card-sub" data-en="Swipe on 6 Indian policy questions → get your Spotify-Wrapped political identity" data-hi="6 प्रश्नों पर स्वाइप करें → Spotify Wrapped-शैली की आपकी पहचान पाएं">Swipe on 6 Indian policy questions → get your Spotify-Wrapped political identity</p>
+
+            <!-- Start state -->
+            <div id="vm-start">
+              <button class="cta-btn pulse" id="vm-start-btn" aria-label="Start Voter Match quiz">
+                <span data-en="Find My Vibe ✨" data-hi="मेरी वाइब खोजें ✨">Find My Vibe ✨</span>
+              </button>
+            </div>
+
+            <!-- Question state -->
+            <div id="vm-question" hidden>
+              <div class="q-progress-wrap" aria-label="Voter match progress" style="margin-bottom:12px">
+                <div class="q-progress-bar" id="vm-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+              </div>
+              <p class="vm-counter" id="vm-counter" aria-live="polite">1 / 6</p>
+              <div class="vm-statement-card">
+                <p class="vm-statement" id="vm-statement" aria-live="polite"></p>
+                <div class="vm-actions">
+                  <button class="vm-disagree-btn" aria-label="Disagree with statement">
+                    <span aria-hidden="true">👎</span> <span data-en="Disagree" data-hi="असहमत">Disagree</span>
+                  </button>
+                  <button class="vm-agree-btn" aria-label="Agree with statement">
+                    <span aria-hidden="true">👍</span> <span data-en="Agree" data-hi="सहमत">Agree</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Loading state -->
+            <div id="vm-loading" hidden aria-live="polite" aria-busy="true" style="text-align:center;padding:20px">
+              <div class="quiz-load-anim" aria-hidden="true"><span></span><span></span><span></span></div>
+              <p data-en="Calculating your vibe…" data-hi="आपकी वाइब कैलकुलेट हो रही है…">Calculating your vibe…</p>
+            </div>
+
+            <!-- Result state -->
+            <div id="vm-result" hidden>
+              <div id="viral-confetti" class="confetti-wrap" aria-hidden="true"></div>
+              <div class="vm-card-result" role="region" aria-label="Your political vibe result">
+                <p class="vm-vibe-label" id="vm-vibe"></p>
+                <div class="vm-match-row">
+                  <span class="vm-match-chip a" id="vm-match-a"></span>
+                  <span class="vm-match-chip b" id="vm-match-b"></span>
+                </div>
+                <p class="vm-top-issue">Top issue: <strong id="vm-top-issue"></strong></p>
+                <p class="vm-tagline" id="vm-tagline"></p>
+                <div class="vm-result-actions">
+                  <button class="cta-btn" id="vm-restart-btn" style="font-size:.85rem;padding:10px 20px">
+                    <span data-en="Try Again 🔄" data-hi="फिर कोशिश करें 🔄">Try Again 🔄</span>
+                  </button>
+                  <button class="cta-btn" onclick="copyToClip('vm-vibe','Vibe copied! Share it 🔥')" style="font-size:.85rem;padding:10px 20px;background:var(--green)">
+                    <span data-en="📋 Copy &amp; Share" data-hi="📋 कॉपी और शेयर करें">📋 Copy &amp; Share</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Roast My Excuses ─── -->
+          <div class="viral-card roast-card" aria-label="Roast My Excuses feature">
+            <h3 class="viral-card-title" data-en="🎤 Roast My Excuses" data-hi="🎤 मेरे बहाने रोस्ट करो">🎤 Roast My Excuses</h3>
+            <p class="viral-card-sub" data-en="Type why you (or a friend) aren't voting — Gemini roasts you back with facts 🔥" data-hi="बताएं क्यों vote नहीं करंगे — Gemini तथ्यों से रोस्ट करेगा 🔥">Type why you (or a friend) aren't voting — Gemini roasts you back with facts 🔥</p>
+            <div class="roast-input-wrap">
+              <label for="roast-input" class="sr-only">Your excuse for not voting</label>
+              <textarea id="roast-input" class="roast-textarea" rows="2" maxlength="300"
+                data-en-placeholder="e.g. My vote doesn't matter anyway…"
+                data-hi-placeholder="जैसे — मेरे वोट से क्या फर्क पड़ता है…"
+                placeholder="e.g. My vote doesn't matter anyway…"
+                aria-label="Enter your excuse for not voting"></textarea>
+              <button class="cta-btn" id="roast-btn" style="font-size:.85rem;padding:10px 20px">
+                <span data-en="Roast Me 🔥" data-hi="रोस्ट करो 🔥">Roast Me 🔥</span>
+              </button>
+            </div>
+            <div id="roast-output" aria-live="polite" aria-label="Roast result"></div>
+          </div>
+
+          <!-- ── Constituency Leaderboard ─── -->
+          <div class="viral-card lb-card" aria-label="Constituency turnout leaderboard">
+            <h3 class="viral-card-title" data-en="🏆 Youth Registration Leaderboard" data-hi="🏆 युवा पंजीकरण लीडरबोर्ड">🏆 Youth Registration Leaderboard</h3>
+            <p class="viral-card-sub" data-en="Which Delhi constituency has the highest youth voter registrations? 🗳️" data-hi="किस Delhi क्षेत्र में सर्वाधिक युवा मतदाता पंजीकरण? 🗳️">Which Delhi constituency has the highest youth voter registrations? 🗳️</p>
+            <div id="leaderboard-list" class="leaderboard-list" role="list" aria-label="Leaderboard" aria-live="polite"></div>
+          </div>
+
+          <!-- ── Squad Pacts ─── -->
+          <div class="viral-card squad-card" aria-label="Voting Squad Pact feature">
+            <h3 class="viral-card-title" data-en="👥 Squad Voting Pact" data-hi="👥 दोस्त वोटिंग पैक्ट">👥 Squad Voting Pact</h3>
+            <p class="viral-card-sub" data-en="Form a squad with friends, track everyone's voting journey together!" data-hi="दोस्तों के साथ दल बनाएं, सभी की वोटिंग यात्रा एक साथ ट्रैक करें!">Form a squad with friends, track everyone's voting journey together!</p>
+
+            <!-- Setup -->
+            <div id="squad-setup">
+              <input type="text" id="squad-name-input" class="crowd-input" placeholder="Your name" aria-label="Your name for the squad" maxlength="30" style="width:100%;margin-bottom:8px" />
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+                <button class="cta-btn" id="squad-create-btn" style="font-size:.85rem;padding:10px 16px">
+                  <span data-en="Create Squad 🤝" data-hi="दल बनाएं 🤝">Create Squad 🤝</span>
+                </button>
+                <button class="cta-btn" id="squad-join-btn" style="font-size:.85rem;padding:10px 16px;background:var(--green)">
+                  <span data-en="Join Squad →" data-hi="दल में शामिल हों →">Join Squad →</span>
+                </button>
+              </div>
+              <input type="text" id="squad-code-input" class="crowd-input" placeholder="Enter squad code to join" aria-label="Squad code to join" maxlength="10" style="width:100%" />
+            </div>
+
+            <!-- Active squad -->
+            <div id="squad-active" hidden>
+              <div class="squad-code-row">
+                <span data-en="Your code:" data-hi="आपका कोड:">Your code:</span>
+                <strong id="squad-code-display" class="squad-code" aria-live="polite"></strong>
+                <button class="icon-btn" id="squad-copy-btn" aria-label="Copy squad code" title="Copy code">📋</button>
+              </div>
+              <div id="squad-members" class="squad-members" aria-live="polite" aria-label="Squad members"></div>
+              <button class="cta-btn" id="squad-vote-btn" style="font-size:.85rem;padding:10px 20px;margin-top:12px;background:var(--green)">
+                <span data-en="✅ Mark Me as Voted!" data-hi="✅ मुझे वोटर मार्क करें!">✅ Mark Me as Voted!</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- ── I Voted Drip Card ─── -->
+          <div class="viral-card voted-card" aria-label="I Voted digital badge">
+            <h3 class="viral-card-title" data-en="🗳️ &quot;I Voted&quot; Digital Badge" data-hi="🗳️ &quot;मैंने वोट दिया&quot; डिजिटल बैज">🗳️ "I Voted" Digital Badge</h3>
+            <p class="viral-card-sub" data-en="Generate your shareable &quot;I Voted&quot; card — drop it on Instagram or WhatsApp!" data-hi="अपना शेयर करने योग्य &quot;मैंने वोट दिया&quot; कार्ड बनाएं!">Generate your shareable "I Voted" card — drop it on Instagram or WhatsApp!</p>
+            <button class="cta-btn pulse" id="voted-card-btn" style="margin-top:8px">
+              <span data-en="Generate My Badge 🎨" data-hi="मेरा बैज बनाएं 🎨">Generate My Badge 🎨</span>
+            </button>
+            <canvas id="voted-canvas" hidden aria-label="I Voted badge" style="width:100%;max-width:300px;border-radius:var(--r-xl);margin-top:16px;display:block"></canvas>
+            <a id="download-voted-card" class="cta-btn" hidden style="margin-top:8px;font-size:.85rem;padding:10px 20px;text-decoration:none;display:inline-block">Download</a>
+          </div>
+
+        </div><!-- /viral-grid -->
+      </section>
+
     </div><!-- /tabs-wrap -->
 
   </main>
 
   <!-- ══ FOOTER ══════════════════════════════════════════════════════════ -->
   <footer class="footer" role="contentinfo">
-    <p>Built with ⚡ &amp; <strong>Google Gemini 2.0 Flash</strong> · For civic education only</p>
+    <p data-en="Built with ⚡ &amp; Google Gemini 2.0 Flash · For civic education only" data-hi="⚡ व Google Gemini 2.0 Flash के साथ निर्मित · केवल नागरिक शिक्षा हेतु">Built with ⚡ &amp; <strong>Google Gemini 2.0 Flash</strong> · For civic education only</p>
     <div class="footer-links">
       <a href="https://eci.gov.in" target="_blank" rel="noopener noreferrer">ECI India</a>
       <span aria-hidden="true">·</span>
-      <a href="https://www.fec.gov" target="_blank" rel="noopener noreferrer">FEC USA</a>
+      <a href="https://nvsp.in" target="_blank" rel="noopener noreferrer">NVSP Portal</a>
       <span aria-hidden="true">·</span>
-      <a href="https://www.electoralcommission.org.uk" target="_blank" rel="noopener noreferrer">Electoral Commission UK</a>
+      <a href="https://www.fec.gov" target="_blank" rel="noopener noreferrer">FEC USA</a>
     </div>
   </footer>
 
   <script src="/static/js/timeline.js"></script>
   <script src="/static/js/app.js"></script>
+  <script src="/static/js/features.js"></script>
 </body>
 </html>

@@ -868,6 +868,394 @@ def voter_guide():
 
 
 # ---------------------------------------------------------------------------
+# India Constituency Data (Hyper-Local Features)
+# ---------------------------------------------------------------------------
+
+CONSTITUENCIES: dict = {
+    "Chandni Chowk, Delhi": {
+        "candidates": [
+            {
+                "name": "Praveen Khandelwal", "party": "BJP", "symbol": "🪷",
+                "pillars": ["Traders' Rights", "Infrastructure", "Digital Markets"],
+                "vibe": "Stability & Commerce", "record": "National Sec. Gen., CAIT",
+                "endorsements": "PM Modi", "color": "#FF6B35",
+            },
+            {
+                "name": "JP Agarwal", "party": "INC", "symbol": "✋",
+                "pillars": ["Small Business Support", "Affordable Healthcare", "Education"],
+                "vibe": "Inclusive Growth", "record": "Former Delhi MLA & MP",
+                "endorsements": "Rahul Gandhi", "color": "#138808",
+            },
+            {
+                "name": "Raghav Chadha (Supp.)", "party": "AAP", "symbol": "🧹",
+                "pillars": ["Free Utilities", "Mohalla Clinics", "School Quality"],
+                "vibe": "Aam Aadmi First", "record": "Rajya Sabha MP, Ex-AAP Delhi",
+                "endorsements": "Arvind Kejriwal", "color": "#00BFFF",
+            },
+        ],
+        "booth": {
+            "name": "Govt. Boys Sr. Sec. School, Chandni Chowk",
+            "address": "Near Fatehpuri Mosque, Chandni Chowk, Delhi 110006",
+            "maps_url": "https://maps.google.com/?q=Govt+Boys+School+Chandni+Chowk+Delhi",
+            "tip": "Nearest Metro: Chandni Chowk (Yellow Line) — 5 min walk",
+        },
+        "issues": [
+            {"issue": "Air Pollution", "issue_hi": "वायु प्रदूषण", "intensity": 94, "icon": "🌫️"},
+            {"issue": "Trader Regulation", "issue_hi": "व्यापार नियमन", "intensity": 82, "icon": "🏪"},
+            {"issue": "Traffic & Parking", "issue_hi": "यातायात व पार्किंग", "intensity": 76, "icon": "🚗"},
+        ],
+    },
+    "New Delhi, Delhi": {
+        "candidates": [
+            {
+                "name": "Bansuri Swaraj", "party": "BJP", "symbol": "🪷",
+                "pillars": ["Women's Safety", "Diplomatic Quarter Dev.", "Heritage"],
+                "vibe": "Progressive Conservatism", "record": "Daughter of late Sushma Swaraj",
+                "endorsements": "PM Modi", "color": "#FF6B35",
+            },
+            {
+                "name": "Somnath Bharti", "party": "AAP", "symbol": "🧹",
+                "pillars": ["Legal Aid", "Anti-Corruption", "Drainage Infra"],
+                "vibe": "Accountability First", "record": "Former MLA, Malviya Nagar",
+                "endorsements": "Arvind Kejriwal", "color": "#00BFFF",
+            },
+            {
+                "name": "Ajay Maken", "party": "INC", "symbol": "✋",
+                "pillars": ["Affordable Housing", "Employment", "Urban Development"],
+                "vibe": "People's Welfare", "record": "2-term MP, Former Union Minister",
+                "endorsements": "Rahul Gandhi", "color": "#138808",
+            },
+        ],
+        "booth": {
+            "name": "Modern School, Barakhamba Road",
+            "address": "Barakhamba Road, New Delhi 110001",
+            "maps_url": "https://maps.google.com/?q=Modern+School+Barakhamba+Road+New+Delhi",
+            "tip": "Nearest Metro: Barakhamba Road (Blue Line) — 2 min walk",
+        },
+        "issues": [
+            {"issue": "Water Supply", "issue_hi": "जल आपूर्ति", "intensity": 88, "icon": "💧"},
+            {"issue": "Air Quality", "issue_hi": "वायु गुणवत्ता", "intensity": 91, "icon": "🌫️"},
+            {"issue": "Heritage Preservation", "issue_hi": "विरासत संरक्षण", "intensity": 65, "icon": "🏛️"},
+        ],
+    },
+    "South Delhi, Delhi": {
+        "candidates": [
+            {
+                "name": "Ramvir Singh Bidhuri", "party": "BJP", "symbol": "🪷",
+                "pillars": ["Urban Infra", "Security", "Road Development"],
+                "vibe": "Development & Order", "record": "Delhi Assembly Speaker",
+                "endorsements": "PM Modi", "color": "#FF6B35",
+            },
+            {
+                "name": "Sahibraam Chauhan", "party": "INC", "symbol": "✋",
+                "pillars": ["Employment", "Healthcare Access", "Youth Programs"],
+                "vibe": "Grassroots Welfare", "record": "Local Congress leader",
+                "endorsements": "Mallikarjun Kharge", "color": "#138808",
+            },
+            {
+                "name": "Raaj Kumar Anand", "party": "BSP", "symbol": "🐘",
+                "pillars": ["Dalit Rights", "Equal Access", "Anti-Discrimination"],
+                "vibe": "Social Justice", "record": "Former AAP Minister",
+                "endorsements": "Mayawati", "color": "#0000FF",
+            },
+        ],
+        "booth": {
+            "name": "DPS R.K. Puram Community Centre",
+            "address": "Sector 12, R.K. Puram, South Delhi 110022",
+            "maps_url": "https://maps.google.com/?q=RK+Puram+Community+Centre+New+Delhi",
+            "tip": "Nearest Metro: Munirka (Yellow Line) — 10 min walk",
+        },
+        "issues": [
+            {"issue": "Yamuna Pollution", "issue_hi": "यमुना प्रदूषण", "intensity": 89, "icon": "🌊"},
+            {"issue": "Unauthorised Colonies", "issue_hi": "अनधिकृत कॉलोनी", "intensity": 79, "icon": "🏘️"},
+            {"issue": "Power Outages", "issue_hi": "बिजली कटौती", "intensity": 71, "icon": "⚡"},
+        ],
+    },
+    "East Delhi, Delhi": {
+        "candidates": [
+            {
+                "name": "Harsh Malhotra", "party": "BJP", "symbol": "🪷",
+                "pillars": ["Industrial Dev.", "Flood Control", "Smart Roads"],
+                "vibe": "Rapid Development", "record": "BJP Delhi Unit Treasurer",
+                "endorsements": "PM Modi", "color": "#FF6B35",
+            },
+            {
+                "name": "Kuldeep Kumar", "party": "AAP", "symbol": "🧹",
+                "pillars": ["Flood Relief", "Clean Yamuna", "Urban Planning"],
+                "vibe": "Aam Aadmi Values", "record": "AAP East Delhi leader",
+                "endorsements": "Atishi", "color": "#00BFFF",
+            },
+            {
+                "name": "Aradhana Mishra", "party": "INC", "symbol": "✋",
+                "pillars": ["Women Safety", "Employment", "Education Reform"],
+                "vibe": "Inclusive Progress", "record": "INC Spokesperson",
+                "endorsements": "Priyanka Gandhi", "color": "#138808",
+            },
+        ],
+        "booth": {
+            "name": "Laxmi Nagar Govt. School",
+            "address": "Laxmi Nagar, East Delhi 110092",
+            "maps_url": "https://maps.google.com/?q=Laxmi+Nagar+East+Delhi",
+            "tip": "Nearest Metro: Laxmi Nagar (Blue Line) — 3 min walk",
+        },
+        "issues": [
+            {"issue": "Flooding & Drainage", "issue_hi": "बाढ़ और ड्रेनेज", "intensity": 93, "icon": "🌊"},
+            {"issue": "Industrial Pollution", "issue_hi": "औद्योगिक प्रदूषण", "intensity": 80, "icon": "🏭"},
+            {"issue": "Overcrowding", "issue_hi": "भीड़भाड़", "intensity": 74, "icon": "👥"},
+        ],
+    },
+    "North West Delhi, Delhi": {
+        "candidates": [
+            {
+                "name": "Yogendra Chandolia", "party": "BJP", "symbol": "🪷",
+                "pillars": ["Transport Links", "Health Infrastructure", "Cleanliness"],
+                "vibe": "Modern Governance", "record": "BJP District President",
+                "endorsements": "PM Modi", "color": "#FF6B35",
+            },
+            {
+                "name": "Udit Raj", "party": "INC", "symbol": "✋",
+                "pillars": ["SC/ST Rights", "Reservations", "Education Access"],
+                "vibe": "Social Equity", "record": "Former BJP MP turned INC",
+                "endorsements": "Rahul Gandhi", "color": "#138808",
+            },
+            {
+                "name": "Gurdeep Singh", "party": "AAP", "symbol": "🧹",
+                "pillars": ["Free Bus Passes", "Mohalla Schools", "Healthcare"],
+                "vibe": "Free Services", "record": "AAP North Delhi leader",
+                "endorsements": "Sanjay Singh", "color": "#00BFFF",
+            },
+        ],
+        "booth": {
+            "name": "Rohini Sec-7 Community Hall",
+            "address": "Sector 7, Rohini, North West Delhi 110085",
+            "maps_url": "https://maps.google.com/?q=Rohini+Sector+7+Delhi",
+            "tip": "Nearest Metro: Rohini West (Red Line) — 7 min walk",
+        },
+        "issues": [
+            {"issue": "Waste Management", "issue_hi": "कचरा प्रबंधन", "intensity": 85, "icon": "♻️"},
+            {"issue": "Water Quality", "issue_hi": "जल गुणवत्ता", "intensity": 82, "icon": "💧"},
+            {"issue": "School Infrastructure", "issue_hi": "स्कूल अवसंरचना", "intensity": 68, "icon": "🏫"},
+        ],
+    },
+}
+
+# Leaderboard: Youth registration data (mock, India-only)
+LEADERBOARD: list = [
+    {"rank": 1, "name": "Chandni Chowk, Delhi", "name_hi": "चांदनी चौक, दिल्ली", "youth_reg": 31420, "change": "+18%", "emoji": "🥇"},
+    {"rank": 2, "name": "Lajpat Nagar, Delhi", "name_hi": "लाजपत नगर, दिल्ली", "youth_reg": 28950, "change": "+14%", "emoji": "🥈"},
+    {"rank": 3, "name": "Rohini Sector 7, Delhi", "name_hi": "रोहिणी सेक्टर 7, दिल्ली", "youth_reg": 26700, "change": "+11%", "emoji": "🥉"},
+    {"rank": 4, "name": "Laxmi Nagar, Delhi", "name_hi": "लक्ष्मी नगर, दिल्ली", "youth_reg": 24100, "change": "+9%", "emoji": "4️⃣"},
+    {"rank": 5, "name": "R.K. Puram, Delhi", "name_hi": "आर.के. पुरम, दिल्ली", "youth_reg": 21800, "change": "+7%", "emoji": "5️⃣"},
+    {"rank": 6, "name": "Dwarka Sector 12, Delhi", "name_hi": "द्वारका सेक्टर 12, दिल्ली", "youth_reg": 19500, "change": "+5%", "emoji": "6️⃣"},
+    {"rank": 7, "name": "Shahdara, Delhi", "name_hi": "शाहदरा, दिल्ली", "youth_reg": 17300, "change": "+3%", "emoji": "7️⃣"},
+]
+
+# Voter Match issue statements (India-specific)
+VOTER_MATCH_ISSUES: list = [
+    {"id": 1, "statement": "The government should provide free electricity up to 300 units per month to every household.", "issue": "Energy Subsidy"},
+    {"id": 2, "statement": "Building new highways and metro lines should take priority over funding public schools.", "issue": "Infrastructure vs Education"},
+    {"id": 3, "statement": "Reservations in government jobs should be extended to economically weaker sections regardless of caste.", "issue": "Reservations"},
+    {"id": 4, "statement": "India should fast-track nuclear energy to meet its climate targets by 2050.", "issue": "Energy & Climate"},
+    {"id": 5, "statement": "Farmers should receive a guaranteed minimum income (PM-KISAN expanded) regardless of crop yield.", "issue": "Agriculture"},
+    {"id": 6, "statement": "Tech companies should be taxed more heavily to fund rural development and healthcare.", "issue": "Tech Taxation"},
+]
+
+# In-memory stores (reset on server restart — production would use Redis/Firestore)
+crowd_reports: dict = {}   # {constituency: [{wait_min, crowded, ts}]}
+
+# ---------------------------------------------------------------------------
+# New Phase 2 Routes
+# ---------------------------------------------------------------------------
+
+
+@app.route("/api/constituency", methods=["GET"])
+def get_constituency():
+    """
+    Return hyper-local constituency data: candidates, booth, issues.
+
+    Query params:
+        name (str): Constituency name (default 'Chandni Chowk, Delhi')
+    """
+    name: str = sanitize_input(request.args.get("name", "Chandni Chowk, Delhi"), max_length=60)
+    data = CONSTITUENCIES.get(name) or CONSTITUENCIES["Chandni Chowk, Delhi"]
+    return jsonify({"status": "success", "constituency": name, "data": data})
+
+
+@app.route("/api/crowd", methods=["GET", "POST"])
+@limiter.limit("20 per minute")
+def crowd():
+    """
+    Community crowd/wait-time reports for polling booths.
+
+    GET  ?constituency=<name>  — fetch latest reports (last 5)
+    POST {constituency, wait_min, crowded}  — submit a report
+    """
+    if request.method == "POST":
+        body = request.get_json(silent=True) or {}
+        constituency = sanitize_input(body.get("constituency", ""), max_length=60)
+        wait_min = int(body.get("wait_min", 0))
+        crowded = bool(body.get("crowded", False))
+
+        if not constituency:
+            return jsonify({"error": "constituency required", "status": "error"}), 400
+        if wait_min < 0 or wait_min > 180:
+            return jsonify({"error": "wait_min must be 0–180", "status": "error"}), 400
+
+        report = {
+            "wait_min": wait_min,
+            "crowded": crowded,
+            "ts": datetime.utcnow().isoformat() + "Z",
+            "label": "Very crowded 😤" if crowded else ("Moderate 🙂" if wait_min > 15 else "Short wait ✅"),
+        }
+        crowd_reports.setdefault(constituency, []).append(report)
+        # Keep only last 20 reports per constituency
+        crowd_reports[constituency] = crowd_reports[constituency][-20:]
+        return jsonify({"status": "success", "report": report})
+
+    # GET
+    constituency = sanitize_input(request.args.get("constituency", ""), max_length=60)
+    reports = crowd_reports.get(constituency, [])[-5:]
+    avg_wait = round(sum(r["wait_min"] for r in reports) / len(reports)) if reports else None
+    return jsonify({"status": "success", "reports": reports, "avg_wait_min": avg_wait})
+
+
+@app.route("/api/roast", methods=["POST"])
+@limiter.limit("5 per minute")
+@require_gemini
+def roast_excuse():
+    """
+    Gemini-powered "Roast My Excuse" feature.
+    Generates a witty, fact-based, shareable comeback to a voting excuse.
+
+    Request body:
+        excuse (str): The excuse for not voting (required)
+        lang   (str): Language code 'en'|'hi'|'ta'|'te'|'bn'|'mr' (default 'en')
+    """
+    body = request.get_json(silent=True) or {}
+    excuse = sanitize_input(body.get("excuse", ""), max_length=300)
+    lang = sanitize_input(body.get("lang", "en"), max_length=5)
+
+    if not excuse:
+        return jsonify({"error": "excuse cannot be empty", "status": "error"}), 400
+
+    lang_map = {"hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali", "mr": "Marathi", "en": "English"}
+    language = lang_map.get(lang, "English")
+
+    prompt = f"""A young Indian voter gave this excuse for NOT voting: "{excuse}"
+
+Write a witty, fact-based, and encouraging comeback in {language} that:
+1. Gently roasts the excuse with humour
+2. Includes ONE surprising election fact from India (ECI data, voter turnout stats, etc.)
+3. Ends with a motivating one-liner to inspire them to vote
+4. Is under 80 words total
+5. Is fun and screenshot-worthy — like something you'd share in a WhatsApp group
+
+Return ONLY the roast text. No introduction, no explanations."""
+
+    try:
+        resp = model.generate_content(prompt)
+        return jsonify({"status": "success", "roast": resp.text.strip(), "lang": lang})
+    except Exception as exc:
+        logger.error("Roast endpoint error: %s", exc)
+        return jsonify({"error": "Failed to generate roast. Try again!", "status": "error"}), 500
+
+
+@app.route("/api/voter-match", methods=["POST"])
+@limiter.limit("10 per minute")
+@require_gemini
+def voter_match():
+    """
+    Generate Spotify-Wrapped-style "Political Vibe" from user's issue answers.
+
+    Request body:
+        answers (list): [{issue_id, agree: bool}] — 6 answers
+        lang    (str): Language code (default 'en')
+    """
+    body = request.get_json(silent=True) or {}
+    answers = body.get("answers", [])
+    lang = sanitize_input(body.get("lang", "en"), max_length=5)
+
+    if not answers or len(answers) < 3:
+        return jsonify({"error": "At least 3 answers required", "status": "error"}), 400
+
+    lang_map = {"hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali", "mr": "Marathi", "en": "English"}
+    language = lang_map.get(lang, "English")
+
+    # Map answers to issue names
+    issue_map = {i["id"]: i["issue"] for i in VOTER_MATCH_ISSUES}
+    answered = []
+    for a in answers[:6]:
+        iid = a.get("issue_id")
+        agree = a.get("agree", False)
+        if iid in issue_map:
+            answered.append(f"{'Agrees' if agree else 'Disagrees'} with: {issue_map[iid]}")
+
+    answers_text = "\n".join(answered)
+    prompt = f"""Based on these Indian voter preferences:
+{answers_text}
+
+Generate a Spotify-Wrapped style "Political Vibe" card in {language} with:
+1. A catchy 3-word "vibe label" (e.g., "Tech-Progressive Pragmatist", "Rural-First Traditionalist")
+2. A percentage match score for 2 contrasting Indian political philosophies
+3. Your #1 issue prediction for this voter
+4. A fun emoji-rich one-liner about their civic identity
+
+Return as JSON with keys: vibe_label, match_a ({{party_style, pct}}), match_b ({{party_style, pct}}), top_issue, tagline
+Return ONLY valid JSON, no markdown fences."""
+
+    try:
+        resp = model.generate_content(prompt)
+        raw = resp.text.strip()
+        json_match = re.search(r"\{.*\}", raw, re.DOTALL)
+        result = json.loads(json_match.group() if json_match else raw)
+        return jsonify({"status": "success", "result": result, "lang": lang})
+    except Exception as exc:
+        logger.error("VoterMatch error: %s", exc)
+        return jsonify({"error": "Could not generate vibe. Try again!", "status": "error"}), 500
+
+
+@app.route("/api/leaderboard", methods=["GET"])
+def leaderboard():
+    """Return constituency youth-registration leaderboard (India-only)."""
+    return jsonify({"status": "success", "leaderboard": LEADERBOARD, "total_constituencies": len(LEADERBOARD)})
+
+
+@app.route("/api/translate", methods=["POST"])
+@limiter.limit("15 per minute")
+@require_gemini
+def translate():
+    """
+    Translate UI text or AI response to an Indian language using Gemini.
+
+    Request body:
+        text (str): Text to translate (required, max 500 chars)
+        lang (str): Target language code 'hi'|'ta'|'te'|'bn'|'mr'
+    """
+    body = request.get_json(silent=True) or {}
+    text = sanitize_input(body.get("text", ""), max_length=500)
+    lang = sanitize_input(body.get("lang", "hi"), max_length=5)
+
+    if not text:
+        return jsonify({"error": "text cannot be empty", "status": "error"}), 400
+
+    lang_map = {"hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali", "mr": "Marathi"}
+    language = lang_map.get(lang, "Hindi")
+
+    prompt = f"""Translate the following election/civic text to {language}.
+Maintain the same tone (friendly + informative). Preserve any emojis.
+Return ONLY the translated text — no notes or explanations.
+
+Text: {text}"""
+
+    try:
+        resp = model.generate_content(prompt)
+        return jsonify({"status": "success", "translated": resp.text.strip(), "lang": lang, "language": language})
+    except Exception as exc:
+        logger.error("Translate error: %s", exc)
+        return jsonify({"error": "Translation failed. Please try again.", "status": "error"}), 500
+
+
+# ---------------------------------------------------------------------------
 # Error handlers
 # ---------------------------------------------------------------------------
 

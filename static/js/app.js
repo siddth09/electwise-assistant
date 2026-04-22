@@ -12,6 +12,8 @@ const state = {
   difficulty: "medium",
   timelineLoaded: false,
   guideLoaded: false,
+  localLoaded: false,
+  viralLoaded: false,
 };
 
 /* ── $ shortcut ─────────────────────────────────────────────────────── */
@@ -48,7 +50,7 @@ function switchTab(name) {
     t.classList.toggle("hidden", !show);
   });
 
-  // Lazy load
+  // Lazy load existing sections
   if (name === "timeline" && !state.timelineLoaded) {
     loadTimeline(state.country);
     state.timelineLoaded = true;
@@ -56,6 +58,15 @@ function switchTab(name) {
   if (name === "guide" && !state.guideLoaded) {
     loadVoterGuide(state.country);
     state.guideLoaded = true;
+  }
+  // Phase 2 lazy load (functions live in features.js)
+  if (name === "local" && !state.localLoaded) {
+    if (typeof loadLocalData === "function") loadLocalData();
+    state.localLoaded = true;
+  }
+  if (name === "viral" && !state.viralLoaded) {
+    if (typeof loadLeaderboard === "function") loadLeaderboard();
+    state.viralLoaded = true;
   }
 }
 
