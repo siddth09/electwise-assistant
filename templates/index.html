@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="ElectWise AI — Your interactive guide to understanding election processes, voter rights, and democratic participation for India, USA, and UK." />
+  <meta name="keywords" content="election process, voting guide, civic education, how to vote, election timeline, India elections, USA elections" />
+  <meta name="author" content="ElectWise AI" />
+  <meta property="og:title" content="ElectWise AI — Election Process Education" />
+  <meta property="og:description" content="Understand elections step by step with AI-powered civic education." />
+  <meta property="og:type" content="website" />
+  <title>ElectWise AI — Election Process Education</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+  <!-- ── Skip navigation (accessibility) ─────────────────────────────────── -->
+  <a href="#main-content" class="skip-nav" id="skip-nav">Skip to main content</a>
+
+  <!-- ── Animated background ──────────────────────────────────────────────── -->
+  <div class="bg-orbs" aria-hidden="true">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <!-- ── Header ───────────────────────────────────────────────────────────── -->
+  <header class="header" role="banner">
+    <div class="container">
+      <div class="header-inner">
+        <a href="/" class="logo" aria-label="ElectWise AI Home">
+          <span class="logo-icon" aria-hidden="true">🗳️</span>
+          <span class="logo-text">Elect<span class="logo-accent">Wise</span> AI</span>
+        </a>
+
+        <nav class="nav" aria-label="Primary navigation">
+          <button class="nav-btn active" data-section="chat" id="nav-chat" aria-current="page" aria-controls="section-chat">
+            <span aria-hidden="true">💬</span> Ask ElectWise
+          </button>
+          <button class="nav-btn" data-section="timeline" id="nav-timeline" aria-controls="section-timeline">
+            <span aria-hidden="true">📅</span> Election Timeline
+          </button>
+          <button class="nav-btn" data-section="guide" id="nav-guide" aria-controls="section-guide">
+            <span aria-hidden="true">📋</span> Voter Guide
+          </button>
+          <button class="nav-btn" data-section="quiz" id="nav-quiz" aria-controls="section-quiz">
+            <span aria-hidden="true">🧠</span> Civics Quiz
+          </button>
+        </nav>
+
+        <!-- Country selector -->
+        <div class="country-selector">
+          <label for="country-select" class="sr-only">Select country</label>
+          <select id="country-select" name="country" aria-label="Select country for election information">
+            <option value="India" selected>🇮🇳 India</option>
+            <option value="USA">🇺🇸 USA</option>
+            <option value="UK">🇬🇧 UK</option>
+          </select>
+        </div>
+
+        <!-- High contrast toggle -->
+        <button class="contrast-toggle" id="contrast-toggle" aria-label="Toggle high contrast mode" aria-pressed="false" title="High contrast mode">
+          <span aria-hidden="true">◑</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main content ──────────────────────────────────────────────────────── -->
+  <main id="main-content" tabindex="-1">
+    <div class="container">
+
+      <!-- ── Hero ─────────────────────────────────────────────────────────── -->
+      <section class="hero" aria-label="Introduction">
+        <div class="hero-badge">
+          <span class="badge-dot" aria-hidden="true"></span>
+          Powered by Google Gemini 2.0 Flash
+        </div>
+        <h1 class="hero-title">
+          Understand <span class="gradient-text">Elections</span><br />
+          Like Never Before
+        </h1>
+        <p class="hero-sub">
+          Your AI-powered civic guide — explore election timelines, learn to vote,
+          quiz yourself, and ask anything about the democratic process.
+        </p>
+        <div class="hero-stats" role="list" aria-label="Key facts">
+          <div class="stat" role="listitem"><span class="stat-num">3</span><span class="stat-label">Countries</span></div>
+          <div class="stat-divider" aria-hidden="true"></div>
+          <div class="stat" role="listitem"><span class="stat-num">8</span><span class="stat-label">Election Phases</span></div>
+          <div class="stat-divider" aria-hidden="true"></div>
+          <div class="stat" role="listitem"><span class="stat-num">AI</span><span class="stat-label">Powered</span></div>
+        </div>
+      </section>
+
+      <!-- ── Tab sections ──────────────────────────────────────────────────── -->
+
+      <!-- ── CHAT ─────────────────────────────────────────────────────────── -->
+      <section id="section-chat" class="section active" aria-label="AI Chat" aria-live="polite">
+        <div class="chat-layout">
+          <!-- Quick Prompts -->
+          <aside class="quick-prompts" aria-label="Quick question suggestions">
+            <h2 class="aside-title">Quick Questions</h2>
+            <div class="prompt-grid" role="list">
+              <button class="prompt-chip" data-prompt="How do I register to vote?" role="listitem">
+                📋 How do I register to vote?
+              </button>
+              <button class="prompt-chip" data-prompt="What is an EVM and how does it work?" role="listitem">
+                🖥️ What is an EVM?
+              </button>
+              <button class="prompt-chip" data-prompt="What is the Model Code of Conduct?" role="listitem">
+                📜 Model Code of Conduct
+              </button>
+              <button class="prompt-chip" data-prompt="What documents do I need to vote?" role="listitem">
+                🪪 Documents to vote
+              </button>
+              <button class="prompt-chip" data-prompt="How are votes counted in India?" role="listitem">
+                🔢 How are votes counted?
+              </button>
+              <button class="prompt-chip" data-prompt="What is NOTA and how do I use it?" role="listitem">
+                ❌ What is NOTA?
+              </button>
+              <button class="prompt-chip" data-prompt="How does the Electoral College work in USA?" role="listitem">
+                🗺️ Electoral College (USA)
+              </button>
+              <button class="prompt-chip" data-prompt="Who is eligible to vote in India?" role="listitem">
+                ✅ Voter eligibility
+              </button>
+            </div>
+          </aside>
+
+          <!-- Chat window -->
+          <div class="chat-panel">
+            <div class="chat-messages" id="chat-messages" role="log" aria-label="Conversation" aria-live="polite" aria-atomic="false" tabindex="0">
+              <!-- Welcome message -->
+              <div class="message message-ai" role="article" aria-label="ElectWise AI message">
+                <div class="message-avatar" aria-hidden="true">🗳️</div>
+                <div class="message-content">
+                  <div class="message-header">
+                    <strong>ElectWise AI</strong>
+                    <span class="message-time" aria-label="Sent just now">Just now</span>
+                  </div>
+                  <div class="message-text">
+                    <p>👋 Hello! I'm <strong>ElectWise</strong>, your civic education guide.</p>
+                    <p>I can help you understand:</p>
+                    <ul>
+                      <li>🗳️ How elections work — step by step</li>
+                      <li>📋 How to register and vote</li>
+                      <li>📅 Election timelines and phases</li>
+                      <li>🏛️ Roles of election bodies (ECI, FEC, etc.)</li>
+                      <li>🌍 Election processes for <strong>India, USA, and UK</strong></li>
+                    </ul>
+                    <p>Select a country above and ask me anything!</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Typing indicator (hidden by default) -->
+            <div class="typing-indicator" id="typing-indicator" aria-live="polite" hidden>
+              <div class="message-avatar" aria-hidden="true">🗳️</div>
+              <div class="typing-dots" aria-label="ElectWise is thinking">
+                <span></span><span></span><span></span>
+              </div>
+            </div>
+
+            <!-- Input area -->
+            <form class="chat-input-form" id="chat-form" role="search" aria-label="Ask ElectWise" novalidate>
+              <div class="input-wrapper">
+                <label for="chat-input" class="sr-only">Type your question about elections</label>
+                <textarea
+                  id="chat-input"
+                  name="message"
+                  placeholder="Ask about elections, voting, timelines…"
+                  rows="1"
+                  maxlength="2000"
+                  aria-label="Your question for ElectWise AI"
+                  aria-required="true"
+                  autocomplete="off"
+                  spellcheck="true"
+                ></textarea>
+                <button type="submit" id="send-btn" aria-label="Send question to ElectWise AI" title="Send (Enter)">
+                  <span aria-hidden="true">➤</span>
+                </button>
+              </div>
+              <p class="input-hint" aria-live="polite" id="input-hint">
+                Press <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> for new line
+              </p>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── TIMELINE ──────────────────────────────────────────────────────── -->
+      <section id="section-timeline" class="section hidden" aria-label="Election Timeline">
+        <div class="section-header">
+          <h2 class="section-title" id="timeline-title">Election Timeline</h2>
+          <p class="section-desc" id="timeline-desc">Follow the complete election journey from announcement to government formation.</p>
+        </div>
+
+        <div id="timeline-loading" class="loading-state" hidden aria-live="polite" aria-busy="true">
+          <div class="spinner" aria-hidden="true"></div>
+          <p>Loading timeline…</p>
+        </div>
+
+        <div id="timeline-container" class="timeline-container" role="list" aria-label="Election phases">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Step detail modal -->
+        <div id="step-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+          <div class="modal-backdrop" id="modal-backdrop"></div>
+          <div class="modal-box">
+            <button class="modal-close" id="modal-close" aria-label="Close step details">✕</button>
+            <div class="modal-icon" id="modal-icon" aria-hidden="true"></div>
+            <h3 class="modal-title" id="modal-title"></h3>
+            <p class="modal-phase" id="modal-phase"></p>
+            <p class="modal-desc" id="modal-desc"></p>
+            <p class="modal-duration"><strong>⏱ Duration:</strong> <span id="modal-duration"></span></p>
+            <ul class="modal-details" id="modal-details" aria-label="Key details"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── VOTER GUIDE ──────────────────────────────────────────────────── -->
+      <section id="section-guide" class="section hidden" aria-label="Voter Registration Guide">
+        <div class="section-header">
+          <h2 class="section-title" id="guide-title">Voter Registration Guide</h2>
+          <p class="section-desc">Follow these steps to register and cast your vote confidently.</p>
+        </div>
+
+        <div id="guide-container" class="guide-container" role="list" aria-label="Voter registration steps">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
+      <!-- ── QUIZ ─────────────────────────────────────────────────────────── -->
+      <section id="section-quiz" class="section hidden" aria-label="Civics Quiz">
+        <div class="section-header">
+          <h2 class="section-title">Civics Quiz</h2>
+          <p class="section-desc">Test your knowledge of the election process with AI-generated questions.</p>
+        </div>
+
+        <!-- Quiz controls -->
+        <div class="quiz-controls" id="quiz-start-screen">
+          <div class="difficulty-selector" role="group" aria-labelledby="difficulty-label">
+            <p id="difficulty-label" class="control-label">Choose Difficulty</p>
+            <button class="diff-btn" data-diff="easy" aria-pressed="false" id="diff-easy">🟢 Easy</button>
+            <button class="diff-btn active" data-diff="medium" aria-pressed="true" id="diff-medium">🟡 Medium</button>
+            <button class="diff-btn" data-diff="hard" aria-pressed="false" id="diff-hard">🔴 Hard</button>
+          </div>
+          <button class="cta-btn" id="start-quiz-btn" aria-label="Start civics quiz">
+            <span aria-hidden="true">🧠</span> Generate Quiz
+          </button>
+        </div>
+
+        <!-- Quiz loading -->
+        <div id="quiz-loading" class="loading-state" hidden aria-live="polite" aria-busy="true">
+          <div class="spinner" aria-hidden="true"></div>
+          <p>Generating quiz with Gemini AI…</p>
+        </div>
+
+        <!-- Quiz question area -->
+        <div id="quiz-container" class="quiz-container" hidden aria-live="polite">
+          <div class="quiz-progress" role="status" aria-live="polite">
+            <div class="progress-bar-wrap" aria-label="Quiz progress">
+              <div class="progress-bar" id="quiz-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+            </div>
+            <span id="quiz-counter" aria-live="polite">Question 1 of 5</span>
+            <span id="quiz-score-display">Score: 0</span>
+          </div>
+
+          <div class="question-card" id="question-card">
+            <p class="question-text" id="question-text" aria-live="polite"></p>
+            <div class="options-grid" id="options-grid" role="radiogroup" aria-labelledby="question-text">
+              <!-- Populated by JS -->
+            </div>
+            <div class="explanation-box" id="explanation-box" hidden role="alert" aria-live="polite"></div>
+            <button class="cta-btn" id="next-btn" hidden aria-label="Next question">Next Question →</button>
+          </div>
+        </div>
+
+        <!-- Quiz results -->
+        <div id="quiz-results" class="quiz-results" hidden aria-live="polite" role="status">
+          <div class="result-icon" id="result-icon" aria-hidden="true"></div>
+          <h3 id="result-title"></h3>
+          <p class="result-score" id="result-score"></p>
+          <p id="result-message"></p>
+          <button class="cta-btn" id="retry-quiz-btn" aria-label="Start a new quiz">🔄 Try Another Quiz</button>
+        </div>
+      </section>
+
+    </div><!-- /container -->
+  </main>
+
+  <!-- ── Footer ────────────────────────────────────────────────────────────── -->
+  <footer class="footer" role="contentinfo">
+    <div class="container">
+      <p>
+        <strong>ElectWise AI</strong> — Built for civic education. 
+        Information is for educational purposes only. 
+        Always consult official election authority websites for authoritative guidance.
+      </p>
+      <p class="footer-links">
+        <a href="https://eci.gov.in" target="_blank" rel="noopener noreferrer" aria-label="Election Commission of India (opens in new tab)">ECI India</a> ·
+        <a href="https://www.fec.gov" target="_blank" rel="noopener noreferrer" aria-label="U.S. Federal Election Commission (opens in new tab)">FEC USA</a> ·
+        <a href="https://www.electoralcommission.org.uk" target="_blank" rel="noopener noreferrer" aria-label="UK Electoral Commission (opens in new tab)">Electoral Commission UK</a>
+      </p>
+      <p class="footer-powered">Powered by <strong>Google Gemini 2.0 Flash</strong></p>
+    </div>
+  </footer>
+
+  <script src="/static/js/timeline.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
