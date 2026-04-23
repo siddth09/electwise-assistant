@@ -7,5 +7,8 @@ google-generativeai==0.8.3
 google-api-python-client==2.136.0
 google-cloud-logging==3.11.3
 google-cloud-firestore==2.19.0
+google-cloud-storage==2.18.2
+google-cloud-secret-manager==2.20.2
+cachetools==5.5.2
 python-dotenv==1.0.1
 gunicorn==22.0.0

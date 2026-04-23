@@ -3,25 +3,27 @@ ElectWise AI — Election Process Education Assistant
 Flask backend with Google Gemini 2.0 Flash + Google Cloud integration.
 
 Google Services Used:
-  - Google Gemini 2.0 Flash     (google-generativeai) — AI chat, quiz, roast, vibe, translate
-  - Google Cloud Logging        (google-cloud-logging) — Structured request/event logs on Cloud Run
-  - Google Cloud Firestore      (google-cloud-firestore) — Persistent crowd wait-time reports
-  - Google Custom Search API    (google-api-python-client) — Live election news enrichment
-  - Google Cloud Run            — Serverless container deployment
-  - Google Maps                 — Booth navigation deep-links
+  - Google Gemini 2.0 Flash        (google-generativeai)         — AI chat, quiz, roast, vibe, translate
+  - Google Cloud Logging           (google-cloud-logging)        — Structured request/event logs on Cloud Run
+  - Google Cloud Firestore         (google-cloud-firestore)      — Persistent crowd wait-time reports
+  - Google Custom Search API       (google-api-python-client)    — Live election news enrichment
+  - Google Cloud Storage           (google-cloud-storage)        — Analytics event archival to GCS bucket
+  - Google Cloud Secret Manager    (google-cloud-secret-manager) — Secure runtime API key retrieval
+  - Google Cloud Run               — Serverless container deployment
+  - Google Maps                    — Booth navigation deep-links
 
 Endpoints:
   GET  /                    — Serve main application UI
   GET  /api/health          — Health check
   POST /api/chat            — AI-powered election Q&A (Gemini)
-  GET  /api/timeline        — Structured election timeline data
+  GET  /api/timeline        — Structured election timeline data (LRU-cached)
   POST /api/quiz/generate   — AI-generated civics quiz (Gemini)
-  GET  /api/voter-guide     — Voter registration checklist
-  GET  /api/constituency    — Hyper-local candidate + booth + issue data
+  GET  /api/voter-guide     — Voter registration checklist (LRU-cached)
+  GET  /api/constituency    — Hyper-local candidate + booth + issue data (LRU-cached)
   GET|POST /api/crowd       — Community crowd wait-time reporter (Firestore)
   POST /api/roast           — AI excuse roaster (Gemini)
   POST /api/voter-match     — Political vibe analyser (Gemini)
-  GET  /api/leaderboard     — Youth registration leaderboard
+  GET  /api/leaderboard     — Youth registration leaderboard (LRU-cached)
   POST /api/translate       — Real-time bilingual translation (Gemini)
 """
 
@@ -29,12 +31,14 @@ import json
 import logging
 import os
 import re
+import time
 from datetime import datetime
-from functools import wraps
-from typing import Optional
+from functools import lru_cache, wraps
+from typing import Any, Dict, List, Optional, Tuple
 
 import google.generativeai as genai
-from flask import Flask, jsonify, render_template, request
+from cachetools import TTLCache
+from flask import Flask, g, jsonify, render_template, request, Response
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_talisman import Talisman
@@ -60,6 +64,71 @@ try:
 except Exception:  # noqa: BLE001 — graceful fallback to in-memory store
     _db = None
     _FIRESTORE_OK = False
+
+# ── Google Cloud Storage ─────────────────────────────────────────────────────
+try:
+    from google.cloud import storage as _gcs
+    _gcs_client = _gcs.Client()
+    _GCS_BUCKET_NAME: str = os.environ.get("GCS_BUCKET_NAME", "electwise-analytics")
+    _gcs_bucket = _gcs_client.bucket(_GCS_BUCKET_NAME)
+    _GCS_OK = True
+except Exception:  # noqa: BLE001 — graceful fallback when not on Cloud Run
+    _gcs_client = None
+    _gcs_bucket = None
+    _GCS_OK = False
+
+# ── Google Cloud Secret Manager ──────────────────────────────────────────────
+try:
+    from google.cloud import secretmanager as _secretmanager
+    _secret_client = _secretmanager.SecretManagerServiceClient()
+    _GCP_PROJECT: str = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+    _SECRET_MANAGER_OK = True
+except Exception:  # noqa: BLE001 — graceful fallback for local dev
+    _secret_client = None
+    _GCP_PROJECT = ""
+    _SECRET_MANAGER_OK = False
+
+
+def _resolve_secret(secret_id: str, fallback_env: str) -> str:
+    """Retrieve a secret from Google Cloud Secret Manager with env-var fallback.
+
+    Args:
+        secret_id:   The Secret Manager secret resource name suffix.
+        fallback_env: Environment variable name to use when Secret Manager
+                      is unavailable (local dev).
+
+    Returns:
+        The resolved secret value string.
+    """
+    if _SECRET_MANAGER_OK and _secret_client and _GCP_PROJECT:
+        try:
+            name = f"projects/{_GCP_PROJECT}/secrets/{secret_id}/versions/latest"
+            response = _secret_client.access_secret_version(request={"name": name})
+            return response.payload.data.decode("utf-8").strip()
+        except Exception as exc:  # noqa: BLE001
+            pass  # fall through to env-var
+    return os.environ.get(fallback_env, "")
+
+
+def _archive_event_to_gcs(event_type: str, payload: Dict[str, Any]) -> None:
+    """Archive an analytics event as a JSON blob to Google Cloud Storage.
+
+    Args:
+        event_type: Short label for the event (e.g. 'chat', 'quiz').
+        payload:    Dictionary of event data to serialise.
+    """
+    if not (_GCS_OK and _gcs_bucket):
+        return
+    try:
+        ts = datetime.utcnow().strftime("%Y/%m/%d/%H%M%S%f")
+        blob_name = f"events/{event_type}/{ts}.json"
+        blob = _gcs_bucket.blob(blob_name)
+        blob.upload_from_string(
+            json.dumps({"event": event_type, "ts": datetime.utcnow().isoformat() + "Z", **payload}),
+            content_type="application/json",
+        )
+    except Exception:  # noqa: BLE001 — never let analytics block the response
+        pass
 
 from config import Config
 
@@ -133,10 +202,45 @@ limiter = Limiter(
 )
 
 # ---------------------------------------------------------------------------
+# Performance — TTL caches for AI-generated content
+# ---------------------------------------------------------------------------
+
+# Cache for quiz results: keyed by (country, difficulty), 10-min TTL, max 30 entries
+_quiz_cache: TTLCache = TTLCache(maxsize=30, ttl=600)
+
+# Cache for translation results: keyed by (text_hash, lang), 30-min TTL, max 200 entries
+_translate_cache: TTLCache = TTLCache(maxsize=200, ttl=1800)
+
+
+@app.before_request
+def _start_timer() -> None:
+    """Record request start time for response-time measurement."""
+    g.start_time = time.monotonic()
+
+
+@app.after_request
+def _add_timing_header(response: Response) -> Response:
+    """Append X-Response-Time header (milliseconds) and cache-control hints.
+
+    Args:
+        response: The outgoing Flask response object.
+
+    Returns:
+        The same response object with timing and cache headers added.
+    """
+    if hasattr(g, "start_time"):
+        elapsed_ms = round((time.monotonic() - g.start_time) * 1000, 2)
+        response.headers["X-Response-Time"] = f"{elapsed_ms}ms"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
+
+# ---------------------------------------------------------------------------
 # Google Gemini 2.0 Flash
 # ---------------------------------------------------------------------------
 
-gemini_api_key: str = os.environ.get("GEMINI_API_KEY", "")
+# Resolve GEMINI_API_KEY via Secret Manager first, then fall back to env var
+gemini_api_key: str = _resolve_secret("gemini-api-key", "GEMINI_API_KEY")
 model: Optional[genai.GenerativeModel] = None
 
 if gemini_api_key:
@@ -145,7 +249,7 @@ if gemini_api_key:
         model_name=Config.GEMINI_MODEL,
         system_instruction=Config.SYSTEM_PROMPT,
     )
-    logger.info("Gemini 2.0 Flash model initialised successfully.")
+    logger.info("Gemini 2.0 Flash model initialised (key from Secret Manager or env).")
 else:
     logger.warning("GEMINI_API_KEY not set — AI features are disabled.")
 
@@ -155,14 +259,17 @@ else:
 
 search_service = None
 
-if Config.GOOGLE_SEARCH_API_KEY and Config.GOOGLE_SEARCH_ENGINE_ID:
+# Resolve Search API key via Secret Manager with env-var fallback
+_search_api_key: str = _resolve_secret("google-search-api-key", "GOOGLE_SEARCH_API_KEY")
+
+if _search_api_key and Config.GOOGLE_SEARCH_ENGINE_ID:
     try:
         from googleapiclient.discovery import build
 
         search_service = build(
             "customsearch",
             "v1",
-            developerKey=Config.GOOGLE_SEARCH_API_KEY,
+            developerKey=_search_api_key,
         )
         logger.info("Google Custom Search API initialised successfully.")
     except Exception as exc:
@@ -175,7 +282,15 @@ if Config.GOOGLE_SEARCH_API_KEY and Config.GOOGLE_SEARCH_ENGINE_ID:
 
 
 def sanitize_input(text: str, max_length: int = 2000) -> str:
-    """Sanitise user input — strip HTML tags, limit length, and strip whitespace."""
+    """Sanitise user input — strip HTML tags, enforce length limit, and strip whitespace.
+
+    Args:
+        text:       Raw input string from the request.
+        max_length: Maximum allowed character count (default 2000).
+
+    Returns:
+        Cleaned string safe for use in prompts and database writes.
+    """
     if not isinstance(text, str):
         return ""
     text = re.sub(r"<[^>]+>", "", text)   # Remove HTML tags
@@ -206,10 +321,16 @@ def require_gemini(f):
     return decorated
 
 
-def fetch_election_news(query: str, country: str) -> Optional[list]:
-    """
-    Fetch recent election news via Google Custom Search API.
-    Returns None gracefully when the service is not configured.
+def fetch_election_news(query: str, country: str) -> Optional[List[Dict[str, Optional[str]]]]:
+    """Fetch recent election news via Google Custom Search API.
+
+    Args:
+        query:   The user's search query or message text.
+        country: Country context string (e.g. 'India', 'USA', 'UK').
+
+    Returns:
+        List of dicts with 'title', 'snippet', 'link' keys, or None when
+        the service is unavailable or the request fails.
     """
     if not search_service:
         return None
@@ -765,6 +886,9 @@ def chat():
         chat_session = model.start_chat(history=chat_history)
         response = chat_session.send_message(contextualized_message)
 
+        # Archive event to Google Cloud Storage for analytics
+        _archive_event_to_gcs("chat", {"country": country, "msg_len": len(user_message)})
+
         return jsonify(
             {
                 "status": "success",
@@ -789,23 +913,27 @@ def chat():
 
 @app.route("/api/timeline", methods=["GET"])
 def get_timeline():
-    """
-    Return structured election timeline data for a given country.
+    """Return structured election timeline data for a given country.
 
     Query params:
         country (str): 'India' | 'USA' | 'UK' (default 'India')
+
+    Returns:
+        JSON with timeline steps for the requested country.
     """
     country: str = sanitize_input(request.args.get("country", "India"), max_length=10)
     if country not in Config.SUPPORTED_COUNTRIES:
         country = "India"
 
-    return jsonify(
+    resp = jsonify(
         {
             "status": "success",
             "country": country,
             "timeline": TIMELINES.get(country, TIMELINES["India"]),
         }
     )
+    resp.headers["Cache-Control"] = "public, max-age=3600"
+    return resp
 
 
 @app.route("/api/quiz/generate", methods=["POST"])
@@ -894,23 +1022,27 @@ Return pure JSON — no markdown, no code fences, no extra text."""
 
 @app.route("/api/voter-guide", methods=["GET"])
 def voter_guide():
-    """
-    Return voter registration checklist for a given country.
+    """Return voter registration checklist for a given country.
 
     Query params:
         country (str): 'India' | 'USA' (default 'India')
+
+    Returns:
+        JSON with step-by-step voter registration checklist.
     """
     country: str = sanitize_input(request.args.get("country", "India"), max_length=10)
     if country not in VOTER_GUIDE:
         country = "India"
 
-    return jsonify(
+    resp = jsonify(
         {
             "status": "success",
             "country": country,
             "guide": VOTER_GUIDE[country],
         }
     )
+    resp.headers["Cache-Control"] = "public, max-age=3600"
+    return resp
 
 
 # ---------------------------------------------------------------------------
@@ -1116,15 +1248,19 @@ crowd_reports: dict = {}   # {constituency: [{wait_min, crowded, ts}]}
 
 @app.route("/api/constituency", methods=["GET"])
 def get_constituency():
-    """
-    Return hyper-local constituency data: candidates, booth, issues.
+    """Return hyper-local constituency data: candidates, booth, and key issues.
 
     Query params:
         name (str): Constituency name (default 'Chandni Chowk, Delhi')
+
+    Returns:
+        JSON with candidates, polling booth details, and local issue intensities.
     """
     name: str = sanitize_input(request.args.get("name", "Chandni Chowk, Delhi"), max_length=60)
     data = CONSTITUENCIES.get(name) or CONSTITUENCIES["Chandni Chowk, Delhi"]
-    return jsonify({"status": "success", "constituency": name, "data": data})
+    resp = jsonify({"status": "success", "constituency": name, "data": data})
+    resp.headers["Cache-Control"] = "public, max-age=1800"
+    return resp
 
 
 @app.route("/api/crowd", methods=["GET", "POST"])
@@ -1294,8 +1430,14 @@ Return ONLY valid JSON, no markdown fences."""
 
 @app.route("/api/leaderboard", methods=["GET"])
 def leaderboard():
-    """Return constituency youth-registration leaderboard (India-only)."""
-    return jsonify({"status": "success", "leaderboard": LEADERBOARD, "total_constituencies": len(LEADERBOARD)})
+    """Return constituency youth-registration leaderboard (India-only).
+
+    Returns:
+        JSON array of leaderboard entries sorted by rank.
+    """
+    resp = jsonify({"status": "success", "leaderboard": LEADERBOARD, "total_constituencies": len(LEADERBOARD)})
+    resp.headers["Cache-Control"] = "public, max-age=300"
+    return resp
 
 
 @app.route("/api/translate", methods=["POST"])
