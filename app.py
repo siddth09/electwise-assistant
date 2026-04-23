@@ -38,6 +38,8 @@ from flask import Flask, jsonify, render_template, request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_talisman import Talisman
+from flask_cors import CORS
+from flask_compress import Compress
 from dotenv import load_dotenv
 
 # ── Google Cloud Logging ─────────────────────────────────────────────────────
@@ -80,6 +82,12 @@ if _GCP_LOGGING:
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Enable CORS for security and cross-origin resource sharing
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+# Enable Gzip/Brotli compression for efficiency
+Compress(app)
 
 # ---------------------------------------------------------------------------
 # Security — Content Security Policy (Flask-Talisman)
