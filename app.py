@@ -1,14 +1,28 @@
 """
 ElectWise AI — Election Process Education Assistant
-Flask backend with Google Gemini 2.0 Flash integration.
+Flask backend with Google Gemini 2.0 Flash + Google Cloud integration.
+
+Google Services Used:
+  - Google Gemini 2.0 Flash     (google-generativeai) — AI chat, quiz, roast, vibe, translate
+  - Google Cloud Logging        (google-cloud-logging) — Structured request/event logs on Cloud Run
+  - Google Cloud Firestore      (google-cloud-firestore) — Persistent crowd wait-time reports
+  - Google Custom Search API    (google-api-python-client) — Live election news enrichment
+  - Google Cloud Run            — Serverless container deployment
+  - Google Maps                 — Booth navigation deep-links
 
 Endpoints:
   GET  /                    — Serve main application UI
   GET  /api/health          — Health check
-  POST /api/chat            — AI-powered election Q&A
+  POST /api/chat            — AI-powered election Q&A (Gemini)
   GET  /api/timeline        — Structured election timeline data
-  POST /api/quiz/generate   — AI-generated civics quiz
+  POST /api/quiz/generate   — AI-generated civics quiz (Gemini)
   GET  /api/voter-guide     — Voter registration checklist
+  GET  /api/constituency    — Hyper-local candidate + booth + issue data
+  GET|POST /api/crowd       — Community crowd wait-time reporter (Firestore)
+  POST /api/roast           — AI excuse roaster (Gemini)
+  POST /api/voter-match     — Political vibe analyser (Gemini)
+  GET  /api/leaderboard     — Youth registration leaderboard
+  POST /api/translate       — Real-time bilingual translation (Gemini)
 """
 
 import json
@@ -26,6 +40,25 @@ from flask_limiter.util import get_remote_address
 from flask_talisman import Talisman
 from dotenv import load_dotenv
 
+# ── Google Cloud Logging ─────────────────────────────────────────────────────
+try:
+    import google.cloud.logging as cloud_logging
+    from google.cloud.logging.handlers import CloudLoggingHandler
+    _cloud_log_client = cloud_logging.Client()
+    _cloud_handler = CloudLoggingHandler(_cloud_log_client, name="electwise-ai")
+    _GCP_LOGGING = True
+except Exception:  # noqa: BLE001 — graceful fallback outside Cloud Run
+    _GCP_LOGGING = False
+
+# ── Google Cloud Firestore ───────────────────────────────────────────────────
+try:
+    from google.cloud import firestore as _firestore
+    _db = _firestore.Client()
+    _FIRESTORE_OK = True
+except Exception:  # noqa: BLE001 — graceful fallback to in-memory store
+    _db = None
+    _FIRESTORE_OK = False
+
 from config import Config
 
 # ---------------------------------------------------------------------------
@@ -39,6 +72,11 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# Attach Cloud Logging handler when running on Cloud Run
+if _GCP_LOGGING:
+    logger.addHandler(_cloud_handler)
+    logger.info("Google Cloud Logging initialised — logs streaming to Cloud Logging.")
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -1086,6 +1124,7 @@ def get_constituency():
 def crowd():
     """
     Community crowd/wait-time reports for polling booths.
+    Persisted in Google Cloud Firestore when available; falls back to in-memory.
 
     GET  ?constituency=<name>  — fetch latest reports (last 5)
     POST {constituency, wait_min, crowded}  — submit a report
@@ -1106,15 +1145,46 @@ def crowd():
             "crowded": crowded,
             "ts": datetime.utcnow().isoformat() + "Z",
             "label": "Very crowded 😤" if crowded else ("Moderate 🙂" if wait_min > 15 else "Short wait ✅"),
+            "constituency": constituency,
         }
-        crowd_reports.setdefault(constituency, []).append(report)
-        # Keep only last 20 reports per constituency
-        crowd_reports[constituency] = crowd_reports[constituency][-20:]
+
+        # ── Persist to Google Cloud Firestore ──────────────────────────────
+        if _FIRESTORE_OK and _db:
+            try:
+                _db.collection("crowd_reports").add(report)
+                logger.info("Crowd report written to Firestore for: %s", constituency)
+            except Exception as fstore_err:  # noqa: BLE001
+                logger.warning("Firestore write failed — falling back to memory: %s", fstore_err)
+                crowd_reports.setdefault(constituency, []).append(report)
+                crowd_reports[constituency] = crowd_reports[constituency][-20:]
+        else:
+            # In-memory fallback for local dev
+            crowd_reports.setdefault(constituency, []).append(report)
+            crowd_reports[constituency] = crowd_reports[constituency][-20:]
+
         return jsonify({"status": "success", "report": report})
 
-    # GET
+    # GET — fetch latest reports
     constituency = sanitize_input(request.args.get("constituency", ""), max_length=60)
-    reports = crowd_reports.get(constituency, [])[-5:]
+
+    # ── Read from Google Cloud Firestore ────────────────────────────────────
+    if _FIRESTORE_OK and _db:
+        try:
+            docs = (
+                _db.collection("crowd_reports")
+                .where("constituency", "==", constituency)
+                .order_by("ts", direction="DESCENDING")
+                .limit(5)
+                .stream()
+            )
+            reports = [doc.to_dict() for doc in docs]
+            logger.info("Crowd reports fetched from Firestore for: %s", constituency)
+        except Exception as fstore_err:  # noqa: BLE001
+            logger.warning("Firestore read failed — using memory fallback: %s", fstore_err)
+            reports = crowd_reports.get(constituency, [])[-5:]
+    else:
+        reports = crowd_reports.get(constituency, [])[-5:]
+
     avg_wait = round(sum(r["wait_min"] for r in reports) / len(reports)) if reports else None
     return jsonify({"status": "success", "reports": reports, "avg_wait_min": avg_wait})
 
