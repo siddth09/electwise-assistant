@@ -25,6 +25,16 @@ Endpoints:
   POST /api/voter-match     — Political vibe analyser (Gemini)
   GET  /api/leaderboard     — Youth registration leaderboard (LRU-cached)
   POST /api/translate       — Real-time bilingual translation (Gemini)
+
+Google Services (8 total):
+  1. Google Gemini 2.0 Flash        — AI chat, quiz, roast, vibe, translate
+  2. Google Cloud Logging           — Structured request/event logs on Cloud Run
+  3. Google Cloud Firestore         — Persistent crowd wait-time reports
+  4. Google Custom Search API       — Live election news enrichment
+  5. Google Cloud Storage (GCS)     — Analytics event archival to GCS bucket
+  6. Google Cloud Secret Manager    — Secure runtime API key retrieval
+  7. Google Cloud BigQuery          — Structured analytics event streaming
+  8. Google Cloud Natural Language  — AI/ML content moderation on user inputs
 """
 
 import json
@@ -34,7 +44,7 @@ import re
 import time
 from datetime import datetime
 from functools import lru_cache, wraps
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import google.generativeai as genai
 from cachetools import TTLCache
@@ -105,8 +115,8 @@ def _resolve_secret(secret_id: str, fallback_env: str) -> str:
             name = f"projects/{_GCP_PROJECT}/secrets/{secret_id}/versions/latest"
             response = _secret_client.access_secret_version(request={"name": name})
             return response.payload.data.decode("utf-8").strip()
-        except Exception as exc:  # noqa: BLE001
-            pass  # fall through to env-var
+        except Exception:  # noqa: BLE001 — fall through to env-var
+            pass
     return os.environ.get(fallback_env, "")
 
 
@@ -129,6 +139,88 @@ def _archive_event_to_gcs(event_type: str, payload: Dict[str, Any]) -> None:
         )
     except Exception:  # noqa: BLE001 — never let analytics block the response
         pass
+
+
+# ── Google Cloud BigQuery ────────────────────────────────────────────────────
+try:
+    from google.cloud import bigquery as _bigquery
+    _bq_client = _bigquery.Client()
+    _BQ_DATASET: str = os.environ.get("BQ_DATASET", "electwise_analytics")
+    _BQ_TABLE: str = (
+        f"{_GCP_PROJECT}.{_BQ_DATASET}.events" if _GCP_PROJECT else ""
+    )
+    _BQ_OK = True
+except Exception:  # noqa: BLE001 — graceful fallback outside Cloud Run
+    _bq_client = None
+    _BQ_TABLE = ""
+    _BQ_OK = False
+
+# ── Google Cloud Natural Language ────────────────────────────────────────────
+try:
+    from google.cloud import language_v2 as _language
+    _nl_client = _language.LanguageServiceClient()
+    _NL_OK = True
+except Exception:  # noqa: BLE001 — graceful fallback outside Cloud Run
+    _nl_client = None
+    _NL_OK = False
+
+
+def _log_event_to_bigquery(event_type: str, payload: Dict[str, Any]) -> None:
+    """Stream an analytics event row to Google Cloud BigQuery.
+
+    Rows are inserted into the ``events`` table in the configured dataset.
+    Failures are silently swallowed so analytics never block the request.
+
+    Args:
+        event_type: Short category label (e.g. 'chat', 'quiz', 'translate').
+        payload:    Flat dict of string-serialisable event attributes.
+    """
+    if not (_BQ_OK and _bq_client and _BQ_TABLE):
+        return
+    try:
+        row: Dict[str, str] = {
+            "event_type": event_type,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            **{k: str(v) for k, v in payload.items()},
+        }
+        errors = _bq_client.insert_rows_json(_BQ_TABLE, [row])
+        if errors:
+            logger.debug("BigQuery insert errors: %s", errors)
+    except Exception:  # noqa: BLE001 — never let analytics block the response
+        pass
+
+
+def _is_safe_input(text: str) -> bool:
+    """Classify user input with Google Cloud Natural Language content moderation.
+
+    Uses the ``moderate_text`` method (v2) to detect toxic or harmful content.
+    Returns ``True`` (safe) when the service is unavailable so the app always
+    fails open and never silently blocks legitimate queries.
+
+    Args:
+        text: The raw user input string to evaluate.
+
+    Returns:
+        ``True`` if the content is safe, ``False`` if a moderation category
+        exceeds the 0.80 confidence threshold.
+    """
+    if not (_NL_OK and _nl_client) or len(text) < 20:
+        return True  # default safe when service unavailable or text too short
+    try:
+        document = _language.Document(
+            content=text, type_=_language.Document.Type.PLAIN_TEXT
+        )
+        result = _nl_client.moderate_text(document=document)
+        unsafe_categories = {"Toxic", "Insult", "Profanity", "Derogatory", "Death, Harm & Tragedy"}
+        for category in result.moderation_categories:
+            if category.confidence > 0.80 and category.name in unsafe_categories:
+                logger.warning("Unsafe content detected [%s %.2f]: %.40s",
+                               category.name, category.confidence, text)
+                return False
+        return True
+    except Exception:  # noqa: BLE001 — fail open
+        return True
+
 
 from config import Config
 
@@ -856,6 +948,10 @@ def chat():
     if not user_message:
         return jsonify({"error": "Message cannot be empty.", "status": "error"}), 400
 
+    # Content moderation via Google Cloud Natural Language API
+    if not _is_safe_input(user_message):
+        return jsonify({"error": "Message contains inappropriate content.", "status": "error"}), 400
+
     if country not in Config.SUPPORTED_COUNTRIES:
         country = "India"
 
@@ -888,6 +984,8 @@ def chat():
 
         # Archive event to Google Cloud Storage for analytics
         _archive_event_to_gcs("chat", {"country": country, "msg_len": len(user_message)})
+        # Stream structured event to Google Cloud BigQuery for analytics
+        _log_event_to_bigquery("chat", {"country": country, "msg_len": len(user_message)})
 
         return jsonify(
             {
@@ -911,6 +1009,23 @@ def chat():
         )
 
 
+@lru_cache(maxsize=8)
+def _get_timeline_data(country: str) -> Dict:
+    """Return timeline data for a country, LRU-cached at the Python level.
+
+    This pure function is decorated with ``@lru_cache`` so repeated calls for
+    the same country (e.g. 'India') hit memory instead of re-evaluating the
+    dict lookup on every request.
+
+    Args:
+        country: Country key string ('India', 'USA', or 'UK').
+
+    Returns:
+        The timeline dict for the given country, falling back to India.
+    """
+    return TIMELINES.get(country, TIMELINES["India"])
+
+
 @app.route("/api/timeline", methods=["GET"])
 def get_timeline():
     """Return structured election timeline data for a given country.
@@ -929,7 +1044,7 @@ def get_timeline():
         {
             "status": "success",
             "country": country,
-            "timeline": TIMELINES.get(country, TIMELINES["India"]),
+            "timeline": _get_timeline_data(country),
         }
     )
     resp.headers["Cache-Control"] = "public, max-age=3600"
@@ -995,6 +1110,9 @@ Return pure JSON — no markdown, no code fences, no extra text."""
 
         if not validated:
             raise ValueError("No valid questions in AI response.")
+
+        # Stream quiz analytics to BigQuery
+        _log_event_to_bigquery("quiz", {"country": country, "difficulty": difficulty, "total": len(validated)})
 
         return jsonify(
             {
