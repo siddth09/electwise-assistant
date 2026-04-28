@@ -56,13 +56,17 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_talisman import Talisman
 
+from config import Config
+
 # ── Google Cloud Logging ─────────────────────────────────────────────────────
 try:
     import google.cloud.logging as cloud_logging
     from google.cloud.logging.handlers import CloudLoggingHandler
 
     _cloud_log_client = cloud_logging.Client()
-    _cloud_handler = CloudLoggingHandler(_cloud_log_client, name="electwise-ai")
+    _cloud_handler = CloudLoggingHandler(
+        _cloud_log_client, name="electwise-ai"
+    )
     _GCP_LOGGING = True
 except Exception:  # noqa: BLE001 — graceful fallback outside Cloud Run
     _GCP_LOGGING = False
@@ -82,7 +86,9 @@ try:
     from google.cloud import storage as _gcs
 
     _gcs_client = _gcs.Client()
-    _GCS_BUCKET_NAME: str = os.environ.get("GCS_BUCKET_NAME", "electwise-analytics")
+    _GCS_BUCKET_NAME: str = os.environ.get(
+        "GCS_BUCKET_NAME", "electwise-analytics"
+    )
     _gcs_bucket = _gcs_client.bucket(_GCS_BUCKET_NAME)
     _GCS_OK = True
 except Exception:  # noqa: BLE001 — graceful fallback when not on Cloud Run
@@ -116,8 +122,12 @@ def _resolve_secret(secret_id: str, fallback_env: str) -> str:
     """
     if _SECRET_MANAGER_OK and _secret_client and _GCP_PROJECT:
         try:
-            name = f"projects/{_GCP_PROJECT}/secrets/{secret_id}/versions/latest"
-            response = _secret_client.access_secret_version(request={"name": name})
+            name = (
+                f"projects/{_GCP_PROJECT}/secrets/{secret_id}/versions/latest"
+            )
+            response = _secret_client.access_secret_version(
+                request={"name": name}
+            )
             return response.payload.data.decode("utf-8").strip()
         except Exception:  # noqa: BLE001 — fall through to env-var
             pass
@@ -157,7 +167,9 @@ try:
 
     _bq_client = _bigquery.Client()
     _BQ_DATASET: str = os.environ.get("BQ_DATASET", "electwise_analytics")
-    _BQ_TABLE: str = f"{_GCP_PROJECT}.{_BQ_DATASET}.events" if _GCP_PROJECT else ""
+    _BQ_TABLE: str = (
+        f"{_GCP_PROJECT}.{_BQ_DATASET}.events" if _GCP_PROJECT else ""
+    )
     _BQ_OK = True
 except Exception:  # noqa: BLE001 — graceful fallback outside Cloud Run
     _bq_client = None
@@ -229,7 +241,10 @@ def _is_safe_input(text: str) -> bool:
             "Death, Harm & Tragedy",
         }
         for category in result.moderation_categories:
-            if category.confidence > 0.80 and category.name in unsafe_categories:
+            if (
+                category.confidence > 0.80
+                and category.name in unsafe_categories
+            ):
                 logger.warning(
                     "Unsafe content detected [%s %.2f]: %.40s",
                     category.name,
@@ -241,8 +256,6 @@ def _is_safe_input(text: str) -> bool:
     except Exception:  # noqa: BLE001 — fail open
         return True
 
-
-from config import Config
 
 # ---------------------------------------------------------------------------
 # Initialisation
@@ -259,7 +272,9 @@ logger = logging.getLogger(__name__)
 # Attach Cloud Logging handler when running on Cloud Run
 if _GCP_LOGGING:
     logger.addHandler(_cloud_handler)
-    logger.info("Google Cloud Logging initialised — logs streaming to Cloud Logging.")
+    logger.info(
+        "Google Cloud Logging initialised — logs streaming to Cloud Logging."
+    )
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -361,7 +376,9 @@ if gemini_api_key:
         model_name=Config.GEMINI_MODEL,
         system_instruction=Config.SYSTEM_PROMPT,
     )
-    logger.info("Gemini 2.0 Flash model initialised (key from Secret Manager or env).")
+    logger.info(
+        "Gemini 2.0 Flash model initialised (key from Secret Manager or env)."
+    )
 else:
     logger.warning("GEMINI_API_KEY not set — AI features are disabled.")
 
@@ -372,7 +389,9 @@ else:
 search_service = None
 
 # Resolve Search API key via Secret Manager with env-var fallback
-_search_api_key: str = _resolve_secret("google-search-api-key", "GOOGLE_SEARCH_API_KEY")
+_search_api_key: str = _resolve_secret(
+    "google-search-api-key", "GOOGLE_SEARCH_API_KEY"
+)
 
 if _search_api_key and Config.GOOGLE_SEARCH_ENGINE_ID:
     try:
@@ -937,7 +956,9 @@ def health():
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "services": {
                 "gemini": "connected" if model else "disconnected",
-                "custom_search": "connected" if search_service else "unavailable",
+                "custom_search": (
+                    "connected" if search_service else "unavailable"
+                ),
             },
             "version": "1.0.0",
         }
@@ -961,20 +982,29 @@ def chat():
     """
     data = request.get_json(silent=True)
     if not data:
-        return jsonify({"error": "Invalid JSON payload.", "status": "error"}), 400
+        return (
+            jsonify({"error": "Invalid JSON payload.", "status": "error"}),
+            400,
+        )
 
     user_message: str = sanitize_input(data.get("message", ""))
     country: str = sanitize_input(data.get("country", "India"), max_length=10)
     history: list = data.get("history", [])
 
     if not user_message:
-        return jsonify({"error": "Message cannot be empty.", "status": "error"}), 400
+        return (
+            jsonify({"error": "Message cannot be empty.", "status": "error"}),
+            400,
+        )
 
     # Content moderation via Google Cloud Natural Language API
     if not _is_safe_input(user_message):
         return (
             jsonify(
-                {"error": "Message contains inappropriate content.", "status": "error"}
+                {
+                    "error": "Message contains inappropriate content.",
+                    "status": "error",
+                }
             ),
             400,
         )
@@ -992,13 +1022,18 @@ def chat():
                 chat_history.append({"role": role, "parts": [content]})
 
         # Inject country context
-        contextualized_message = (
-            f"[Context: User is asking about {country} elections]\n\n{user_message}"
-        )
+        contextualized_message = f"[Context: User is asking about {country} elections]\n\n{user_message}"
 
         # Optionally enrich with live search results
         search_news = None
-        news_keywords = ("news", "latest", "recent", "current", "update", "today")
+        news_keywords = (
+            "news",
+            "latest",
+            "recent",
+            "current",
+            "update",
+            "today",
+        )
         if any(kw in user_message.lower() for kw in news_keywords):
             search_news = fetch_election_news(user_message, country)
 
@@ -1069,7 +1104,9 @@ def get_timeline():
     Returns:
         JSON with timeline steps for the requested country.
     """
-    country: str = sanitize_input(request.args.get("country", "India"), max_length=10)
+    country: str = sanitize_input(
+        request.args.get("country", "India"), max_length=10
+    )
     if country not in Config.SUPPORTED_COUNTRIES:
         country = "India"
 
@@ -1100,10 +1137,15 @@ def generate_quiz():
     """
     data = request.get_json(silent=True)
     if not data:
-        return jsonify({"error": "Invalid JSON payload.", "status": "error"}), 400
+        return (
+            jsonify({"error": "Invalid JSON payload.", "status": "error"}),
+            400,
+        )
 
     country: str = sanitize_input(data.get("country", "India"), max_length=10)
-    difficulty: str = sanitize_input(data.get("difficulty", "medium"), max_length=10)
+    difficulty: str = sanitize_input(
+        data.get("difficulty", "medium"), max_length=10
+    )
 
     if country not in Config.SUPPORTED_COUNTRIES:
         country = "India"
@@ -1132,7 +1174,10 @@ Return pure JSON — no markdown, no code fences, no extra text."""
         # Validate each question structure
         validated: list = []
         for q in questions[:5]:
-            if all(k in q for k in ("question", "options", "correct", "explanation")):
+            if all(
+                k in q
+                for k in ("question", "options", "correct", "explanation")
+            ):
                 if (
                     isinstance(q["options"], list)
                     and len(q["options"]) == 4
@@ -1147,7 +1192,11 @@ Return pure JSON — no markdown, no code fences, no extra text."""
         # Stream quiz analytics to BigQuery
         _log_event_to_bigquery(
             "quiz",
-            {"country": country, "difficulty": difficulty, "total": len(validated)},
+            {
+                "country": country,
+                "difficulty": difficulty,
+                "total": len(validated),
+            },
         )
 
         return jsonify(
@@ -1164,7 +1213,10 @@ Return pure JSON — no markdown, no code fences, no extra text."""
         logger.error("Quiz JSON parse error: %s", exc)
         return (
             jsonify(
-                {"error": "Failed to parse quiz. Please try again.", "status": "error"}
+                {
+                    "error": "Failed to parse quiz. Please try again.",
+                    "status": "error",
+                }
             ),
             500,
         )
@@ -1191,7 +1243,9 @@ def voter_guide():
     Returns:
         JSON with step-by-step voter registration checklist.
     """
-    country: str = sanitize_input(request.args.get("country", "India"), max_length=10)
+    country: str = sanitize_input(
+        request.args.get("country", "India"), max_length=10
+    )
     if country not in VOTER_GUIDE:
         country = "India"
 
@@ -1217,7 +1271,11 @@ CONSTITUENCIES: dict = {
                 "name": "Praveen Khandelwal",
                 "party": "BJP",
                 "symbol": "🪷",
-                "pillars": ["Traders' Rights", "Infrastructure", "Digital Markets"],
+                "pillars": [
+                    "Traders' Rights",
+                    "Infrastructure",
+                    "Digital Markets",
+                ],
                 "vibe": "Stability & Commerce",
                 "record": "National Sec. Gen., CAIT",
                 "endorsements": "PM Modi",
@@ -1241,7 +1299,11 @@ CONSTITUENCIES: dict = {
                 "name": "Raghav Chadha (Supp.)",
                 "party": "AAP",
                 "symbol": "🧹",
-                "pillars": ["Free Utilities", "Mohalla Clinics", "School Quality"],
+                "pillars": [
+                    "Free Utilities",
+                    "Mohalla Clinics",
+                    "School Quality",
+                ],
                 "vibe": "Aam Aadmi First",
                 "record": "Rajya Sabha MP, Ex-AAP Delhi",
                 "endorsements": "Arvind Kejriwal",
@@ -1281,7 +1343,11 @@ CONSTITUENCIES: dict = {
                 "name": "Bansuri Swaraj",
                 "party": "BJP",
                 "symbol": "🪷",
-                "pillars": ["Women's Safety", "Diplomatic Quarter Dev.", "Heritage"],
+                "pillars": [
+                    "Women's Safety",
+                    "Diplomatic Quarter Dev.",
+                    "Heritage",
+                ],
                 "vibe": "Progressive Conservatism",
                 "record": "Daughter of late Sushma Swaraj",
                 "endorsements": "PM Modi",
@@ -1301,7 +1367,11 @@ CONSTITUENCIES: dict = {
                 "name": "Ajay Maken",
                 "party": "INC",
                 "symbol": "✋",
-                "pillars": ["Affordable Housing", "Employment", "Urban Development"],
+                "pillars": [
+                    "Affordable Housing",
+                    "Employment",
+                    "Urban Development",
+                ],
                 "vibe": "People's Welfare",
                 "record": "2-term MP, Former Union Minister",
                 "endorsements": "Rahul Gandhi",
@@ -1351,7 +1421,11 @@ CONSTITUENCIES: dict = {
                 "name": "Sahibraam Chauhan",
                 "party": "INC",
                 "symbol": "✋",
-                "pillars": ["Employment", "Healthcare Access", "Youth Programs"],
+                "pillars": [
+                    "Employment",
+                    "Healthcare Access",
+                    "Youth Programs",
+                ],
                 "vibe": "Grassroots Welfare",
                 "record": "Local Congress leader",
                 "endorsements": "Mallikarjun Kharge",
@@ -1361,7 +1435,11 @@ CONSTITUENCIES: dict = {
                 "name": "Raaj Kumar Anand",
                 "party": "BSP",
                 "symbol": "🐘",
-                "pillars": ["Dalit Rights", "Equal Access", "Anti-Discrimination"],
+                "pillars": [
+                    "Dalit Rights",
+                    "Equal Access",
+                    "Anti-Discrimination",
+                ],
                 "vibe": "Social Justice",
                 "record": "Former AAP Minister",
                 "endorsements": "Mayawati",
@@ -1461,7 +1539,11 @@ CONSTITUENCIES: dict = {
                 "name": "Yogendra Chandolia",
                 "party": "BJP",
                 "symbol": "🪷",
-                "pillars": ["Transport Links", "Health Infrastructure", "Cleanliness"],
+                "pillars": [
+                    "Transport Links",
+                    "Health Infrastructure",
+                    "Cleanliness",
+                ],
                 "vibe": "Modern Governance",
                 "record": "BJP District President",
                 "endorsements": "PM Modi",
@@ -1471,7 +1553,11 @@ CONSTITUENCIES: dict = {
                 "name": "Udit Raj",
                 "party": "INC",
                 "symbol": "✋",
-                "pillars": ["SC/ST Rights", "Reservations", "Education Access"],
+                "pillars": [
+                    "SC/ST Rights",
+                    "Reservations",
+                    "Education Access",
+                ],
                 "vibe": "Social Equity",
                 "record": "Former BJP MP turned INC",
                 "endorsements": "Rahul Gandhi",
@@ -1481,7 +1567,11 @@ CONSTITUENCIES: dict = {
                 "name": "Gurdeep Singh",
                 "party": "AAP",
                 "symbol": "🧹",
-                "pillars": ["Free Bus Passes", "Mohalla Schools", "Healthcare"],
+                "pillars": [
+                    "Free Bus Passes",
+                    "Mohalla Schools",
+                    "Healthcare",
+                ],
                 "vibe": "Free Services",
                 "record": "AAP North Delhi leader",
                 "endorsements": "Sanjay Singh",
@@ -1650,14 +1740,24 @@ def crowd():
     """
     if request.method == "POST":
         body = request.get_json(silent=True) or {}
-        constituency = sanitize_input(body.get("constituency", ""), max_length=60)
+        constituency = sanitize_input(
+            body.get("constituency", ""), max_length=60
+        )
         wait_min = int(body.get("wait_min", 0))
         crowded = bool(body.get("crowded", False))
 
         if not constituency:
-            return jsonify({"error": "constituency required", "status": "error"}), 400
+            return (
+                jsonify({"error": "constituency required", "status": "error"}),
+                400,
+            )
         if wait_min < 0 or wait_min > 180:
-            return jsonify({"error": "wait_min must be 0–180", "status": "error"}), 400
+            return (
+                jsonify(
+                    {"error": "wait_min must be 0–180", "status": "error"}
+                ),
+                400,
+            )
 
         report = {
             "wait_min": wait_min,
@@ -1675,10 +1775,13 @@ def crowd():
         if _FIRESTORE_OK and _db:
             try:
                 _db.collection("crowd_reports").add(report)
-                logger.info("Crowd report written to Firestore for: %s", constituency)
+                logger.info(
+                    "Crowd report written to Firestore for: %s", constituency
+                )
             except Exception as fstore_err:  # noqa: BLE001
                 logger.warning(
-                    "Firestore write failed — falling back to memory: %s", fstore_err
+                    "Firestore write failed — falling back to memory: %s",
+                    fstore_err,
                 )
                 crowd_reports.setdefault(constituency, []).append(report)
                 crowd_reports[constituency] = crowd_reports[constituency][-20:]
@@ -1690,7 +1793,9 @@ def crowd():
         return jsonify({"status": "success", "report": report})
 
     # GET — fetch latest reports
-    constituency = sanitize_input(request.args.get("constituency", ""), max_length=60)
+    constituency = sanitize_input(
+        request.args.get("constituency", ""), max_length=60
+    )
 
     # ── Read from Google Cloud Firestore ────────────────────────────────────
     if _FIRESTORE_OK and _db:
@@ -1703,7 +1808,9 @@ def crowd():
                 .stream()
             )
             reports = [doc.to_dict() for doc in docs]
-            logger.info("Crowd reports fetched from Firestore for: %s", constituency)
+            logger.info(
+                "Crowd reports fetched from Firestore for: %s", constituency
+            )
         except Exception as fstore_err:  # noqa: BLE001
             logger.warning(
                 "Firestore read failed — using memory fallback: %s", fstore_err
@@ -1713,9 +1820,13 @@ def crowd():
         reports = crowd_reports.get(constituency, [])[-5:]
 
     avg_wait = (
-        round(sum(r["wait_min"] for r in reports) / len(reports)) if reports else None
+        round(sum(r["wait_min"] for r in reports) / len(reports))
+        if reports
+        else None
     )
-    return jsonify({"status": "success", "reports": reports, "avg_wait_min": avg_wait})
+    return jsonify(
+        {"status": "success", "reports": reports, "avg_wait_min": avg_wait}
+    )
 
 
 @app.route("/api/roast", methods=["POST"])
@@ -1735,7 +1846,10 @@ def roast_excuse():
     lang = sanitize_input(body.get("lang", "en"), max_length=5)
 
     if not excuse:
-        return jsonify({"error": "excuse cannot be empty", "status": "error"}), 400
+        return (
+            jsonify({"error": "excuse cannot be empty", "status": "error"}),
+            400,
+        )
 
     lang_map = {
         "hi": "Hindi",
@@ -1760,12 +1874,17 @@ Return ONLY the roast text. No introduction, no explanations."""
 
     try:
         resp = model.generate_content(prompt)
-        return jsonify({"status": "success", "roast": resp.text.strip(), "lang": lang})
+        return jsonify(
+            {"status": "success", "roast": resp.text.strip(), "lang": lang}
+        )
     except Exception as exc:
         logger.error("Roast endpoint error: %s", exc)
         return (
             jsonify(
-                {"error": "Failed to generate roast. Try again!", "status": "error"}
+                {
+                    "error": "Failed to generate roast. Try again!",
+                    "status": "error",
+                }
             ),
             500,
         )
@@ -1787,7 +1906,12 @@ def voter_match():
     lang = sanitize_input(body.get("lang", "en"), max_length=5)
 
     if not answers or len(answers) < 3:
-        return jsonify({"error": "At least 3 answers required", "status": "error"}), 400
+        return (
+            jsonify(
+                {"error": "At least 3 answers required", "status": "error"}
+            ),
+            400,
+        )
 
     lang_map = {
         "hi": "Hindi",
@@ -1833,7 +1957,10 @@ Return ONLY valid JSON, no markdown fences."""
         logger.error("VoterMatch error: %s", exc)
         return (
             jsonify(
-                {"error": "Could not generate vibe. Try again!", "status": "error"}
+                {
+                    "error": "Could not generate vibe. Try again!",
+                    "status": "error",
+                }
             ),
             500,
         )
@@ -1873,7 +2000,10 @@ def translate():
     lang = sanitize_input(body.get("lang", "hi"), max_length=5)
 
     if not text:
-        return jsonify({"error": "text cannot be empty", "status": "error"}), 400
+        return (
+            jsonify({"error": "text cannot be empty", "status": "error"}),
+            400,
+        )
 
     lang_map = {
         "hi": "Hindi",
@@ -1904,7 +2034,10 @@ Text: {text}"""
         logger.error("Translate error: %s", exc)
         return (
             jsonify(
-                {"error": "Translation failed. Please try again.", "status": "error"}
+                {
+                    "error": "Translation failed. Please try again.",
+                    "status": "error",
+                }
             ),
             500,
         )
@@ -1925,7 +2058,12 @@ def not_found(exc):
 def rate_limit_exceeded(exc):
     """Handle 429 Too Many Requests."""
     return (
-        jsonify({"error": "Too many requests — please slow down.", "status": "error"}),
+        jsonify(
+            {
+                "error": "Too many requests — please slow down.",
+                "status": "error",
+            }
+        ),
         429,
     )
 

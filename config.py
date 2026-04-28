@@ -12,7 +12,12 @@ class Config:
     # Flask
     SECRET_KEY: str = os.environ.get("SECRET_KEY", "change-me-in-production")
     DEBUG: bool = os.environ.get("FLASK_ENV", "production") == "development"
-    ALLOWED_ORIGINS: list = ["http://localhost:5000", "http://localhost:8080", "https://electwise.web.app", "https://electwise-assistant.web.app"]
+    ALLOWED_ORIGINS: list = [
+        "http://localhost:5000",
+        "http://localhost:8080",
+        "https://electwise.web.app",
+        "https://electwise-assistant.web.app",
+    ]
 
     # Google AI
     GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
@@ -20,7 +25,9 @@ class Config:
 
     # Google Custom Search (optional — graceful fallback if absent)
     GOOGLE_SEARCH_API_KEY: str = os.environ.get("GOOGLE_SEARCH_API_KEY", "")
-    GOOGLE_SEARCH_ENGINE_ID: str = os.environ.get("GOOGLE_SEARCH_ENGINE_ID", "")
+    GOOGLE_SEARCH_ENGINE_ID: str = os.environ.get(
+        "GOOGLE_SEARCH_ENGINE_ID", ""
+    )
 
     # Rate limiting
     RATELIMIT_DEFAULT: str = "200 per day;30 per minute"
@@ -29,7 +36,7 @@ class Config:
     SUPPORTED_COUNTRIES: list = ["India", "USA", "UK"]
 
     # AI system prompt — defines the ElectWise persona
-    SYSTEM_PROMPT: str = """You are ElectWise, a friendly and knowledgeable civic education AI assistant 
+    SYSTEM_PROMPT: str = """You are ElectWise, a friendly and knowledgeable civic education AI assistant
 specialising in helping citizens understand the election process, timelines, and steps in an interactive and easy-to-follow way.
 
 Your core responsibilities:
