@@ -39,7 +39,10 @@ class TestConfig:
         from config import Config
 
         prompt_lower = Config.SYSTEM_PROMPT.lower()
-        assert "non-partisan" in prompt_lower or "political parties" in prompt_lower
+        assert (
+            "non-partisan" in prompt_lower
+            or "political parties" in prompt_lower
+        )
 
     def test_system_prompt_voter_mentions(self):
         """System prompt should mention voters / voting."""
@@ -74,7 +77,9 @@ class TestQuizJsonValidation:
     def test_valid_question_passes_validation(self):
         """Mimic the validation logic in generate_quiz."""
         q = self.GOOD_QUESTION
-        assert all(k in q for k in ("question", "options", "correct", "explanation"))
+        assert all(
+            k in q for k in ("question", "options", "correct", "explanation")
+        )
         assert isinstance(q["options"], list) and len(q["options"]) == 4
         assert isinstance(q["correct"], int) and 0 <= q["correct"] <= 3
 
@@ -86,7 +91,10 @@ class TestQuizJsonValidation:
         )
 
     def test_wrong_options_count_fails_validation(self):
-        q = {**self.GOOD_QUESTION, "options": ["A", "B", "C"]}  # Only 3 options
+        q = {
+            **self.GOOD_QUESTION,
+            "options": ["A", "B", "C"],
+        }  # Only 3 options
         assert len(q["options"]) != 4
 
     def test_out_of_range_correct_fails_validation(self):
@@ -132,7 +140,9 @@ class TestPromptInjectionGuards:
     def test_iframe_stripped(self):
         from app import sanitize_input
 
-        result = sanitize_input('<iframe src="evil.com"></iframe>vote question')
+        result = sanitize_input(
+            '<iframe src="evil.com"></iframe>vote question'
+        )
         assert "<iframe" not in result
 
     def test_sql_injection_passthrough(self):
@@ -171,8 +181,8 @@ class TestFetchElectionNews:
     def test_returns_none_on_search_exception(self):
         """fetch_election_news should swallow exceptions and return None."""
         mock_service = MagicMock()
-        mock_service.cse.return_value.list.return_value.execute.side_effect = Exception(
-            "API Error"
+        mock_service.cse.return_value.list.return_value.execute.side_effect = (
+            Exception("API Error")
         )
         with patch("app.search_service", mock_service):
             from app import fetch_election_news
