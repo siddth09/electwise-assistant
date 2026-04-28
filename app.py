@@ -48,18 +48,19 @@ from typing import Any, Dict, List, Optional
 
 import google.generativeai as genai
 from cachetools import TTLCache
-from flask import Flask, g, jsonify, render_template, request, Response
+from dotenv import load_dotenv
+from flask import Flask, Response, g, jsonify, render_template, request
+from flask_compress import Compress
+from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_talisman import Talisman
-from flask_cors import CORS
-from flask_compress import Compress
-from dotenv import load_dotenv
 
 # ── Google Cloud Logging ─────────────────────────────────────────────────────
 try:
     import google.cloud.logging as cloud_logging
     from google.cloud.logging.handlers import CloudLoggingHandler
+
     _cloud_log_client = cloud_logging.Client()
     _cloud_handler = CloudLoggingHandler(_cloud_log_client, name="electwise-ai")
     _GCP_LOGGING = True
@@ -69,6 +70,7 @@ except Exception:  # noqa: BLE001 — graceful fallback outside Cloud Run
 # ── Google Cloud Firestore ───────────────────────────────────────────────────
 try:
     from google.cloud import firestore as _firestore
+
     _db = _firestore.Client()
     _FIRESTORE_OK = True
 except Exception:  # noqa: BLE001 — graceful fallback to in-memory store
@@ -78,6 +80,7 @@ except Exception:  # noqa: BLE001 — graceful fallback to in-memory store
 # ── Google Cloud Storage ─────────────────────────────────────────────────────
 try:
     from google.cloud import storage as _gcs
+
     _gcs_client = _gcs.Client()
     _GCS_BUCKET_NAME: str = os.environ.get("GCS_BUCKET_NAME", "electwise-analytics")
     _gcs_bucket = _gcs_client.bucket(_GCS_BUCKET_NAME)
@@ -90,6 +93,7 @@ except Exception:  # noqa: BLE001 — graceful fallback when not on Cloud Run
 # ── Google Cloud Secret Manager ──────────────────────────────────────────────
 try:
     from google.cloud import secretmanager as _secretmanager
+
     _secret_client = _secretmanager.SecretManagerServiceClient()
     _GCP_PROJECT: str = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
     _SECRET_MANAGER_OK = True
@@ -134,7 +138,13 @@ def _archive_event_to_gcs(event_type: str, payload: Dict[str, Any]) -> None:
         blob_name = f"events/{event_type}/{ts}.json"
         blob = _gcs_bucket.blob(blob_name)
         blob.upload_from_string(
-            json.dumps({"event": event_type, "ts": datetime.utcnow().isoformat() + "Z", **payload}),
+            json.dumps(
+                {
+                    "event": event_type,
+                    "ts": datetime.utcnow().isoformat() + "Z",
+                    **payload,
+                }
+            ),
             content_type="application/json",
         )
     except Exception:  # noqa: BLE001 — never let analytics block the response
@@ -144,11 +154,10 @@ def _archive_event_to_gcs(event_type: str, payload: Dict[str, Any]) -> None:
 # ── Google Cloud BigQuery ────────────────────────────────────────────────────
 try:
     from google.cloud import bigquery as _bigquery
+
     _bq_client = _bigquery.Client()
     _BQ_DATASET: str = os.environ.get("BQ_DATASET", "electwise_analytics")
-    _BQ_TABLE: str = (
-        f"{_GCP_PROJECT}.{_BQ_DATASET}.events" if _GCP_PROJECT else ""
-    )
+    _BQ_TABLE: str = f"{_GCP_PROJECT}.{_BQ_DATASET}.events" if _GCP_PROJECT else ""
     _BQ_OK = True
 except Exception:  # noqa: BLE001 — graceful fallback outside Cloud Run
     _bq_client = None
@@ -158,6 +167,7 @@ except Exception:  # noqa: BLE001 — graceful fallback outside Cloud Run
 # ── Google Cloud Natural Language ────────────────────────────────────────────
 try:
     from google.cloud import language_v2 as _language
+
     _nl_client = _language.LanguageServiceClient()
     _NL_OK = True
 except Exception:  # noqa: BLE001 — graceful fallback outside Cloud Run
@@ -211,11 +221,21 @@ def _is_safe_input(text: str) -> bool:
             content=text, type_=_language.Document.Type.PLAIN_TEXT
         )
         result = _nl_client.moderate_text(document=document)
-        unsafe_categories = {"Toxic", "Insult", "Profanity", "Derogatory", "Death, Harm & Tragedy"}
+        unsafe_categories = {
+            "Toxic",
+            "Insult",
+            "Profanity",
+            "Derogatory",
+            "Death, Harm & Tragedy",
+        }
         for category in result.moderation_categories:
             if category.confidence > 0.80 and category.name in unsafe_categories:
-                logger.warning("Unsafe content detected [%s %.2f]: %.40s",
-                               category.name, category.confidence, text)
+                logger.warning(
+                    "Unsafe content detected [%s %.2f]: %.40s",
+                    category.name,
+                    category.confidence,
+                    text,
+                )
                 return False
         return True
     except Exception:  # noqa: BLE001 — fail open
@@ -275,7 +295,7 @@ csp = {
 Talisman(
     app,
     content_security_policy=csp,
-    force_https=False,          # Set True behind a load balancer / Cloud Run
+    force_https=False,  # Set True behind a load balancer / Cloud Run
     strict_transport_security=True,
     session_cookie_secure=False,  # False for local HTTP dev; True in prod
     session_cookie_http_only=True,
@@ -326,6 +346,7 @@ def _add_timing_header(response: Response) -> Response:
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     return response
+
 
 # ---------------------------------------------------------------------------
 # Google Gemini 2.0 Flash
@@ -385,8 +406,8 @@ def sanitize_input(text: str, max_length: int = 2000) -> str:
     """
     if not isinstance(text, str):
         return ""
-    text = re.sub(r"<[^>]+>", "", text)   # Remove HTML tags
-    text = text[:max_length]               # Enforce max length
+    text = re.sub(r"<[^>]+>", "", text)  # Remove HTML tags
+    text = text[:max_length]  # Enforce max length
     return text.strip()
 
 
@@ -413,7 +434,9 @@ def require_gemini(f):
     return decorated
 
 
-def fetch_election_news(query: str, country: str) -> Optional[List[Dict[str, Optional[str]]]]:
+def fetch_election_news(
+    query: str, country: str
+) -> Optional[List[Dict[str, Optional[str]]]]:
     """Fetch recent election news via Google Custom Search API.
 
     Args:
@@ -433,7 +456,7 @@ def fetch_election_news(query: str, country: str) -> Optional[List[Dict[str, Opt
                 q=f"{country} election {query}",
                 cx=Config.GOOGLE_SEARCH_ENGINE_ID,
                 num=3,
-                dateRestrict="m1",   # Last month
+                dateRestrict="m1",  # Last month
             )
             .execute()
         )
@@ -950,7 +973,12 @@ def chat():
 
     # Content moderation via Google Cloud Natural Language API
     if not _is_safe_input(user_message):
-        return jsonify({"error": "Message contains inappropriate content.", "status": "error"}), 400
+        return (
+            jsonify(
+                {"error": "Message contains inappropriate content.", "status": "error"}
+            ),
+            400,
+        )
 
     if country not in Config.SUPPORTED_COUNTRIES:
         country = "India"
@@ -965,7 +993,9 @@ def chat():
                 chat_history.append({"role": role, "parts": [content]})
 
         # Inject country context
-        contextualized_message = f"[Context: User is asking about {country} elections]\n\n{user_message}"
+        contextualized_message = (
+            f"[Context: User is asking about {country} elections]\n\n{user_message}"
+        )
 
         # Optionally enrich with live search results
         search_news = None
@@ -983,9 +1013,13 @@ def chat():
         response = chat_session.send_message(contextualized_message)
 
         # Archive event to Google Cloud Storage for analytics
-        _archive_event_to_gcs("chat", {"country": country, "msg_len": len(user_message)})
+        _archive_event_to_gcs(
+            "chat", {"country": country, "msg_len": len(user_message)}
+        )
         # Stream structured event to Google Cloud BigQuery for analytics
-        _log_event_to_bigquery("chat", {"country": country, "msg_len": len(user_message)})
+        _log_event_to_bigquery(
+            "chat", {"country": country, "msg_len": len(user_message)}
+        )
 
         return jsonify(
             {
@@ -1112,7 +1146,10 @@ Return pure JSON — no markdown, no code fences, no extra text."""
             raise ValueError("No valid questions in AI response.")
 
         # Stream quiz analytics to BigQuery
-        _log_event_to_bigquery("quiz", {"country": country, "difficulty": difficulty, "total": len(validated)})
+        _log_event_to_bigquery(
+            "quiz",
+            {"country": country, "difficulty": difficulty, "total": len(validated)},
+        )
 
         return jsonify(
             {
@@ -1127,13 +1164,20 @@ Return pure JSON — no markdown, no code fences, no extra text."""
     except (json.JSONDecodeError, ValueError) as exc:
         logger.error("Quiz JSON parse error: %s", exc)
         return (
-            jsonify({"error": "Failed to parse quiz. Please try again.", "status": "error"}),
+            jsonify(
+                {"error": "Failed to parse quiz. Please try again.", "status": "error"}
+            ),
             500,
         )
     except Exception as exc:
         logger.error("Quiz generation error: %s", exc, exc_info=True)
         return (
-            jsonify({"error": "Failed to generate quiz. Please try again.", "status": "error"}),
+            jsonify(
+                {
+                    "error": "Failed to generate quiz. Please try again.",
+                    "status": "error",
+                }
+            ),
             500,
         )
 
@@ -1171,22 +1215,38 @@ CONSTITUENCIES: dict = {
     "Chandni Chowk, Delhi": {
         "candidates": [
             {
-                "name": "Praveen Khandelwal", "party": "BJP", "symbol": "🪷",
+                "name": "Praveen Khandelwal",
+                "party": "BJP",
+                "symbol": "🪷",
                 "pillars": ["Traders' Rights", "Infrastructure", "Digital Markets"],
-                "vibe": "Stability & Commerce", "record": "National Sec. Gen., CAIT",
-                "endorsements": "PM Modi", "color": "#FF6B35",
+                "vibe": "Stability & Commerce",
+                "record": "National Sec. Gen., CAIT",
+                "endorsements": "PM Modi",
+                "color": "#FF6B35",
             },
             {
-                "name": "JP Agarwal", "party": "INC", "symbol": "✋",
-                "pillars": ["Small Business Support", "Affordable Healthcare", "Education"],
-                "vibe": "Inclusive Growth", "record": "Former Delhi MLA & MP",
-                "endorsements": "Rahul Gandhi", "color": "#138808",
+                "name": "JP Agarwal",
+                "party": "INC",
+                "symbol": "✋",
+                "pillars": [
+                    "Small Business Support",
+                    "Affordable Healthcare",
+                    "Education",
+                ],
+                "vibe": "Inclusive Growth",
+                "record": "Former Delhi MLA & MP",
+                "endorsements": "Rahul Gandhi",
+                "color": "#138808",
             },
             {
-                "name": "Raghav Chadha (Supp.)", "party": "AAP", "symbol": "🧹",
+                "name": "Raghav Chadha (Supp.)",
+                "party": "AAP",
+                "symbol": "🧹",
                 "pillars": ["Free Utilities", "Mohalla Clinics", "School Quality"],
-                "vibe": "Aam Aadmi First", "record": "Rajya Sabha MP, Ex-AAP Delhi",
-                "endorsements": "Arvind Kejriwal", "color": "#00BFFF",
+                "vibe": "Aam Aadmi First",
+                "record": "Rajya Sabha MP, Ex-AAP Delhi",
+                "endorsements": "Arvind Kejriwal",
+                "color": "#00BFFF",
             },
         ],
         "booth": {
@@ -1196,30 +1256,57 @@ CONSTITUENCIES: dict = {
             "tip": "Nearest Metro: Chandni Chowk (Yellow Line) — 5 min walk",
         },
         "issues": [
-            {"issue": "Air Pollution", "issue_hi": "वायु प्रदूषण", "intensity": 94, "icon": "🌫️"},
-            {"issue": "Trader Regulation", "issue_hi": "व्यापार नियमन", "intensity": 82, "icon": "🏪"},
-            {"issue": "Traffic & Parking", "issue_hi": "यातायात व पार्किंग", "intensity": 76, "icon": "🚗"},
+            {
+                "issue": "Air Pollution",
+                "issue_hi": "वायु प्रदूषण",
+                "intensity": 94,
+                "icon": "🌫️",
+            },
+            {
+                "issue": "Trader Regulation",
+                "issue_hi": "व्यापार नियमन",
+                "intensity": 82,
+                "icon": "🏪",
+            },
+            {
+                "issue": "Traffic & Parking",
+                "issue_hi": "यातायात व पार्किंग",
+                "intensity": 76,
+                "icon": "🚗",
+            },
         ],
     },
     "New Delhi, Delhi": {
         "candidates": [
             {
-                "name": "Bansuri Swaraj", "party": "BJP", "symbol": "🪷",
+                "name": "Bansuri Swaraj",
+                "party": "BJP",
+                "symbol": "🪷",
                 "pillars": ["Women's Safety", "Diplomatic Quarter Dev.", "Heritage"],
-                "vibe": "Progressive Conservatism", "record": "Daughter of late Sushma Swaraj",
-                "endorsements": "PM Modi", "color": "#FF6B35",
+                "vibe": "Progressive Conservatism",
+                "record": "Daughter of late Sushma Swaraj",
+                "endorsements": "PM Modi",
+                "color": "#FF6B35",
             },
             {
-                "name": "Somnath Bharti", "party": "AAP", "symbol": "🧹",
+                "name": "Somnath Bharti",
+                "party": "AAP",
+                "symbol": "🧹",
                 "pillars": ["Legal Aid", "Anti-Corruption", "Drainage Infra"],
-                "vibe": "Accountability First", "record": "Former MLA, Malviya Nagar",
-                "endorsements": "Arvind Kejriwal", "color": "#00BFFF",
+                "vibe": "Accountability First",
+                "record": "Former MLA, Malviya Nagar",
+                "endorsements": "Arvind Kejriwal",
+                "color": "#00BFFF",
             },
             {
-                "name": "Ajay Maken", "party": "INC", "symbol": "✋",
+                "name": "Ajay Maken",
+                "party": "INC",
+                "symbol": "✋",
                 "pillars": ["Affordable Housing", "Employment", "Urban Development"],
-                "vibe": "People's Welfare", "record": "2-term MP, Former Union Minister",
-                "endorsements": "Rahul Gandhi", "color": "#138808",
+                "vibe": "People's Welfare",
+                "record": "2-term MP, Former Union Minister",
+                "endorsements": "Rahul Gandhi",
+                "color": "#138808",
             },
         ],
         "booth": {
@@ -1229,30 +1316,57 @@ CONSTITUENCIES: dict = {
             "tip": "Nearest Metro: Barakhamba Road (Blue Line) — 2 min walk",
         },
         "issues": [
-            {"issue": "Water Supply", "issue_hi": "जल आपूर्ति", "intensity": 88, "icon": "💧"},
-            {"issue": "Air Quality", "issue_hi": "वायु गुणवत्ता", "intensity": 91, "icon": "🌫️"},
-            {"issue": "Heritage Preservation", "issue_hi": "विरासत संरक्षण", "intensity": 65, "icon": "🏛️"},
+            {
+                "issue": "Water Supply",
+                "issue_hi": "जल आपूर्ति",
+                "intensity": 88,
+                "icon": "💧",
+            },
+            {
+                "issue": "Air Quality",
+                "issue_hi": "वायु गुणवत्ता",
+                "intensity": 91,
+                "icon": "🌫️",
+            },
+            {
+                "issue": "Heritage Preservation",
+                "issue_hi": "विरासत संरक्षण",
+                "intensity": 65,
+                "icon": "🏛️",
+            },
         ],
     },
     "South Delhi, Delhi": {
         "candidates": [
             {
-                "name": "Ramvir Singh Bidhuri", "party": "BJP", "symbol": "🪷",
+                "name": "Ramvir Singh Bidhuri",
+                "party": "BJP",
+                "symbol": "🪷",
                 "pillars": ["Urban Infra", "Security", "Road Development"],
-                "vibe": "Development & Order", "record": "Delhi Assembly Speaker",
-                "endorsements": "PM Modi", "color": "#FF6B35",
+                "vibe": "Development & Order",
+                "record": "Delhi Assembly Speaker",
+                "endorsements": "PM Modi",
+                "color": "#FF6B35",
             },
             {
-                "name": "Sahibraam Chauhan", "party": "INC", "symbol": "✋",
+                "name": "Sahibraam Chauhan",
+                "party": "INC",
+                "symbol": "✋",
                 "pillars": ["Employment", "Healthcare Access", "Youth Programs"],
-                "vibe": "Grassroots Welfare", "record": "Local Congress leader",
-                "endorsements": "Mallikarjun Kharge", "color": "#138808",
+                "vibe": "Grassroots Welfare",
+                "record": "Local Congress leader",
+                "endorsements": "Mallikarjun Kharge",
+                "color": "#138808",
             },
             {
-                "name": "Raaj Kumar Anand", "party": "BSP", "symbol": "🐘",
+                "name": "Raaj Kumar Anand",
+                "party": "BSP",
+                "symbol": "🐘",
                 "pillars": ["Dalit Rights", "Equal Access", "Anti-Discrimination"],
-                "vibe": "Social Justice", "record": "Former AAP Minister",
-                "endorsements": "Mayawati", "color": "#0000FF",
+                "vibe": "Social Justice",
+                "record": "Former AAP Minister",
+                "endorsements": "Mayawati",
+                "color": "#0000FF",
             },
         ],
         "booth": {
@@ -1262,30 +1376,57 @@ CONSTITUENCIES: dict = {
             "tip": "Nearest Metro: Munirka (Yellow Line) — 10 min walk",
         },
         "issues": [
-            {"issue": "Yamuna Pollution", "issue_hi": "यमुना प्रदूषण", "intensity": 89, "icon": "🌊"},
-            {"issue": "Unauthorised Colonies", "issue_hi": "अनधिकृत कॉलोनी", "intensity": 79, "icon": "🏘️"},
-            {"issue": "Power Outages", "issue_hi": "बिजली कटौती", "intensity": 71, "icon": "⚡"},
+            {
+                "issue": "Yamuna Pollution",
+                "issue_hi": "यमुना प्रदूषण",
+                "intensity": 89,
+                "icon": "🌊",
+            },
+            {
+                "issue": "Unauthorised Colonies",
+                "issue_hi": "अनधिकृत कॉलोनी",
+                "intensity": 79,
+                "icon": "🏘️",
+            },
+            {
+                "issue": "Power Outages",
+                "issue_hi": "बिजली कटौती",
+                "intensity": 71,
+                "icon": "⚡",
+            },
         ],
     },
     "East Delhi, Delhi": {
         "candidates": [
             {
-                "name": "Harsh Malhotra", "party": "BJP", "symbol": "🪷",
+                "name": "Harsh Malhotra",
+                "party": "BJP",
+                "symbol": "🪷",
                 "pillars": ["Industrial Dev.", "Flood Control", "Smart Roads"],
-                "vibe": "Rapid Development", "record": "BJP Delhi Unit Treasurer",
-                "endorsements": "PM Modi", "color": "#FF6B35",
+                "vibe": "Rapid Development",
+                "record": "BJP Delhi Unit Treasurer",
+                "endorsements": "PM Modi",
+                "color": "#FF6B35",
             },
             {
-                "name": "Kuldeep Kumar", "party": "AAP", "symbol": "🧹",
+                "name": "Kuldeep Kumar",
+                "party": "AAP",
+                "symbol": "🧹",
                 "pillars": ["Flood Relief", "Clean Yamuna", "Urban Planning"],
-                "vibe": "Aam Aadmi Values", "record": "AAP East Delhi leader",
-                "endorsements": "Atishi", "color": "#00BFFF",
+                "vibe": "Aam Aadmi Values",
+                "record": "AAP East Delhi leader",
+                "endorsements": "Atishi",
+                "color": "#00BFFF",
             },
             {
-                "name": "Aradhana Mishra", "party": "INC", "symbol": "✋",
+                "name": "Aradhana Mishra",
+                "party": "INC",
+                "symbol": "✋",
                 "pillars": ["Women Safety", "Employment", "Education Reform"],
-                "vibe": "Inclusive Progress", "record": "INC Spokesperson",
-                "endorsements": "Priyanka Gandhi", "color": "#138808",
+                "vibe": "Inclusive Progress",
+                "record": "INC Spokesperson",
+                "endorsements": "Priyanka Gandhi",
+                "color": "#138808",
             },
         ],
         "booth": {
@@ -1295,30 +1436,57 @@ CONSTITUENCIES: dict = {
             "tip": "Nearest Metro: Laxmi Nagar (Blue Line) — 3 min walk",
         },
         "issues": [
-            {"issue": "Flooding & Drainage", "issue_hi": "बाढ़ और ड्रेनेज", "intensity": 93, "icon": "🌊"},
-            {"issue": "Industrial Pollution", "issue_hi": "औद्योगिक प्रदूषण", "intensity": 80, "icon": "🏭"},
-            {"issue": "Overcrowding", "issue_hi": "भीड़भाड़", "intensity": 74, "icon": "👥"},
+            {
+                "issue": "Flooding & Drainage",
+                "issue_hi": "बाढ़ और ड्रेनेज",
+                "intensity": 93,
+                "icon": "🌊",
+            },
+            {
+                "issue": "Industrial Pollution",
+                "issue_hi": "औद्योगिक प्रदूषण",
+                "intensity": 80,
+                "icon": "🏭",
+            },
+            {
+                "issue": "Overcrowding",
+                "issue_hi": "भीड़भाड़",
+                "intensity": 74,
+                "icon": "👥",
+            },
         ],
     },
     "North West Delhi, Delhi": {
         "candidates": [
             {
-                "name": "Yogendra Chandolia", "party": "BJP", "symbol": "🪷",
+                "name": "Yogendra Chandolia",
+                "party": "BJP",
+                "symbol": "🪷",
                 "pillars": ["Transport Links", "Health Infrastructure", "Cleanliness"],
-                "vibe": "Modern Governance", "record": "BJP District President",
-                "endorsements": "PM Modi", "color": "#FF6B35",
+                "vibe": "Modern Governance",
+                "record": "BJP District President",
+                "endorsements": "PM Modi",
+                "color": "#FF6B35",
             },
             {
-                "name": "Udit Raj", "party": "INC", "symbol": "✋",
+                "name": "Udit Raj",
+                "party": "INC",
+                "symbol": "✋",
                 "pillars": ["SC/ST Rights", "Reservations", "Education Access"],
-                "vibe": "Social Equity", "record": "Former BJP MP turned INC",
-                "endorsements": "Rahul Gandhi", "color": "#138808",
+                "vibe": "Social Equity",
+                "record": "Former BJP MP turned INC",
+                "endorsements": "Rahul Gandhi",
+                "color": "#138808",
             },
             {
-                "name": "Gurdeep Singh", "party": "AAP", "symbol": "🧹",
+                "name": "Gurdeep Singh",
+                "party": "AAP",
+                "symbol": "🧹",
                 "pillars": ["Free Bus Passes", "Mohalla Schools", "Healthcare"],
-                "vibe": "Free Services", "record": "AAP North Delhi leader",
-                "endorsements": "Sanjay Singh", "color": "#00BFFF",
+                "vibe": "Free Services",
+                "record": "AAP North Delhi leader",
+                "endorsements": "Sanjay Singh",
+                "color": "#00BFFF",
             },
         ],
         "booth": {
@@ -1328,36 +1496,124 @@ CONSTITUENCIES: dict = {
             "tip": "Nearest Metro: Rohini West (Red Line) — 7 min walk",
         },
         "issues": [
-            {"issue": "Waste Management", "issue_hi": "कचरा प्रबंधन", "intensity": 85, "icon": "♻️"},
-            {"issue": "Water Quality", "issue_hi": "जल गुणवत्ता", "intensity": 82, "icon": "💧"},
-            {"issue": "School Infrastructure", "issue_hi": "स्कूल अवसंरचना", "intensity": 68, "icon": "🏫"},
+            {
+                "issue": "Waste Management",
+                "issue_hi": "कचरा प्रबंधन",
+                "intensity": 85,
+                "icon": "♻️",
+            },
+            {
+                "issue": "Water Quality",
+                "issue_hi": "जल गुणवत्ता",
+                "intensity": 82,
+                "icon": "💧",
+            },
+            {
+                "issue": "School Infrastructure",
+                "issue_hi": "स्कूल अवसंरचना",
+                "intensity": 68,
+                "icon": "🏫",
+            },
         ],
     },
 }
 
 # Leaderboard: Youth registration data (mock, India-only)
 LEADERBOARD: list = [
-    {"rank": 1, "name": "Chandni Chowk, Delhi", "name_hi": "चांदनी चौक, दिल्ली", "youth_reg": 31420, "change": "+18%", "emoji": "🥇"},
-    {"rank": 2, "name": "Lajpat Nagar, Delhi", "name_hi": "लाजपत नगर, दिल्ली", "youth_reg": 28950, "change": "+14%", "emoji": "🥈"},
-    {"rank": 3, "name": "Rohini Sector 7, Delhi", "name_hi": "रोहिणी सेक्टर 7, दिल्ली", "youth_reg": 26700, "change": "+11%", "emoji": "🥉"},
-    {"rank": 4, "name": "Laxmi Nagar, Delhi", "name_hi": "लक्ष्मी नगर, दिल्ली", "youth_reg": 24100, "change": "+9%", "emoji": "4️⃣"},
-    {"rank": 5, "name": "R.K. Puram, Delhi", "name_hi": "आर.के. पुरम, दिल्ली", "youth_reg": 21800, "change": "+7%", "emoji": "5️⃣"},
-    {"rank": 6, "name": "Dwarka Sector 12, Delhi", "name_hi": "द्वारका सेक्टर 12, दिल्ली", "youth_reg": 19500, "change": "+5%", "emoji": "6️⃣"},
-    {"rank": 7, "name": "Shahdara, Delhi", "name_hi": "शाहदरा, दिल्ली", "youth_reg": 17300, "change": "+3%", "emoji": "7️⃣"},
+    {
+        "rank": 1,
+        "name": "Chandni Chowk, Delhi",
+        "name_hi": "चांदनी चौक, दिल्ली",
+        "youth_reg": 31420,
+        "change": "+18%",
+        "emoji": "🥇",
+    },
+    {
+        "rank": 2,
+        "name": "Lajpat Nagar, Delhi",
+        "name_hi": "लाजपत नगर, दिल्ली",
+        "youth_reg": 28950,
+        "change": "+14%",
+        "emoji": "🥈",
+    },
+    {
+        "rank": 3,
+        "name": "Rohini Sector 7, Delhi",
+        "name_hi": "रोहिणी सेक्टर 7, दिल्ली",
+        "youth_reg": 26700,
+        "change": "+11%",
+        "emoji": "🥉",
+    },
+    {
+        "rank": 4,
+        "name": "Laxmi Nagar, Delhi",
+        "name_hi": "लक्ष्मी नगर, दिल्ली",
+        "youth_reg": 24100,
+        "change": "+9%",
+        "emoji": "4️⃣",
+    },
+    {
+        "rank": 5,
+        "name": "R.K. Puram, Delhi",
+        "name_hi": "आर.के. पुरम, दिल्ली",
+        "youth_reg": 21800,
+        "change": "+7%",
+        "emoji": "5️⃣",
+    },
+    {
+        "rank": 6,
+        "name": "Dwarka Sector 12, Delhi",
+        "name_hi": "द्वारका सेक्टर 12, दिल्ली",
+        "youth_reg": 19500,
+        "change": "+5%",
+        "emoji": "6️⃣",
+    },
+    {
+        "rank": 7,
+        "name": "Shahdara, Delhi",
+        "name_hi": "शाहदरा, दिल्ली",
+        "youth_reg": 17300,
+        "change": "+3%",
+        "emoji": "7️⃣",
+    },
 ]
 
 # Voter Match issue statements (India-specific)
 VOTER_MATCH_ISSUES: list = [
-    {"id": 1, "statement": "The government should provide free electricity up to 300 units per month to every household.", "issue": "Energy Subsidy"},
-    {"id": 2, "statement": "Building new highways and metro lines should take priority over funding public schools.", "issue": "Infrastructure vs Education"},
-    {"id": 3, "statement": "Reservations in government jobs should be extended to economically weaker sections regardless of caste.", "issue": "Reservations"},
-    {"id": 4, "statement": "India should fast-track nuclear energy to meet its climate targets by 2050.", "issue": "Energy & Climate"},
-    {"id": 5, "statement": "Farmers should receive a guaranteed minimum income (PM-KISAN expanded) regardless of crop yield.", "issue": "Agriculture"},
-    {"id": 6, "statement": "Tech companies should be taxed more heavily to fund rural development and healthcare.", "issue": "Tech Taxation"},
+    {
+        "id": 1,
+        "statement": "The government should provide free electricity up to 300 units per month to every household.",
+        "issue": "Energy Subsidy",
+    },
+    {
+        "id": 2,
+        "statement": "Building new highways and metro lines should take priority over funding public schools.",
+        "issue": "Infrastructure vs Education",
+    },
+    {
+        "id": 3,
+        "statement": "Reservations in government jobs should be extended to economically weaker sections regardless of caste.",
+        "issue": "Reservations",
+    },
+    {
+        "id": 4,
+        "statement": "India should fast-track nuclear energy to meet its climate targets by 2050.",
+        "issue": "Energy & Climate",
+    },
+    {
+        "id": 5,
+        "statement": "Farmers should receive a guaranteed minimum income (PM-KISAN expanded) regardless of crop yield.",
+        "issue": "Agriculture",
+    },
+    {
+        "id": 6,
+        "statement": "Tech companies should be taxed more heavily to fund rural development and healthcare.",
+        "issue": "Tech Taxation",
+    },
 ]
 
 # In-memory stores (reset on server restart — production would use Redis/Firestore)
-crowd_reports: dict = {}   # {constituency: [{wait_min, crowded, ts}]}
+crowd_reports: dict = {}  # {constituency: [{wait_min, crowded, ts}]}
 
 # ---------------------------------------------------------------------------
 # New Phase 2 Routes
@@ -1374,7 +1630,9 @@ def get_constituency():
     Returns:
         JSON with candidates, polling booth details, and local issue intensities.
     """
-    name: str = sanitize_input(request.args.get("name", "Chandni Chowk, Delhi"), max_length=60)
+    name: str = sanitize_input(
+        request.args.get("name", "Chandni Chowk, Delhi"), max_length=60
+    )
     data = CONSTITUENCIES.get(name) or CONSTITUENCIES["Chandni Chowk, Delhi"]
     resp = jsonify({"status": "success", "constituency": name, "data": data})
     resp.headers["Cache-Control"] = "public, max-age=1800"
@@ -1406,7 +1664,11 @@ def crowd():
             "wait_min": wait_min,
             "crowded": crowded,
             "ts": datetime.utcnow().isoformat() + "Z",
-            "label": "Very crowded 😤" if crowded else ("Moderate 🙂" if wait_min > 15 else "Short wait ✅"),
+            "label": (
+                "Very crowded 😤"
+                if crowded
+                else ("Moderate 🙂" if wait_min > 15 else "Short wait ✅")
+            ),
             "constituency": constituency,
         }
 
@@ -1416,7 +1678,9 @@ def crowd():
                 _db.collection("crowd_reports").add(report)
                 logger.info("Crowd report written to Firestore for: %s", constituency)
             except Exception as fstore_err:  # noqa: BLE001
-                logger.warning("Firestore write failed — falling back to memory: %s", fstore_err)
+                logger.warning(
+                    "Firestore write failed — falling back to memory: %s", fstore_err
+                )
                 crowd_reports.setdefault(constituency, []).append(report)
                 crowd_reports[constituency] = crowd_reports[constituency][-20:]
         else:
@@ -1442,12 +1706,16 @@ def crowd():
             reports = [doc.to_dict() for doc in docs]
             logger.info("Crowd reports fetched from Firestore for: %s", constituency)
         except Exception as fstore_err:  # noqa: BLE001
-            logger.warning("Firestore read failed — using memory fallback: %s", fstore_err)
+            logger.warning(
+                "Firestore read failed — using memory fallback: %s", fstore_err
+            )
             reports = crowd_reports.get(constituency, [])[-5:]
     else:
         reports = crowd_reports.get(constituency, [])[-5:]
 
-    avg_wait = round(sum(r["wait_min"] for r in reports) / len(reports)) if reports else None
+    avg_wait = (
+        round(sum(r["wait_min"] for r in reports) / len(reports)) if reports else None
+    )
     return jsonify({"status": "success", "reports": reports, "avg_wait_min": avg_wait})
 
 
@@ -1470,7 +1738,14 @@ def roast_excuse():
     if not excuse:
         return jsonify({"error": "excuse cannot be empty", "status": "error"}), 400
 
-    lang_map = {"hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali", "mr": "Marathi", "en": "English"}
+    lang_map = {
+        "hi": "Hindi",
+        "ta": "Tamil",
+        "te": "Telugu",
+        "bn": "Bengali",
+        "mr": "Marathi",
+        "en": "English",
+    }
     language = lang_map.get(lang, "English")
 
     prompt = f"""A young Indian voter gave this excuse for NOT voting: "{excuse}"
@@ -1489,7 +1764,12 @@ Return ONLY the roast text. No introduction, no explanations."""
         return jsonify({"status": "success", "roast": resp.text.strip(), "lang": lang})
     except Exception as exc:
         logger.error("Roast endpoint error: %s", exc)
-        return jsonify({"error": "Failed to generate roast. Try again!", "status": "error"}), 500
+        return (
+            jsonify(
+                {"error": "Failed to generate roast. Try again!", "status": "error"}
+            ),
+            500,
+        )
 
 
 @app.route("/api/voter-match", methods=["POST"])
@@ -1510,7 +1790,14 @@ def voter_match():
     if not answers or len(answers) < 3:
         return jsonify({"error": "At least 3 answers required", "status": "error"}), 400
 
-    lang_map = {"hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali", "mr": "Marathi", "en": "English"}
+    lang_map = {
+        "hi": "Hindi",
+        "ta": "Tamil",
+        "te": "Telugu",
+        "bn": "Bengali",
+        "mr": "Marathi",
+        "en": "English",
+    }
     language = lang_map.get(lang, "English")
 
     # Map answers to issue names
@@ -1520,7 +1807,9 @@ def voter_match():
         iid = a.get("issue_id")
         agree = a.get("agree", False)
         if iid in issue_map:
-            answered.append(f"{'Agrees' if agree else 'Disagrees'} with: {issue_map[iid]}")
+            answered.append(
+                f"{'Agrees' if agree else 'Disagrees'} with: {issue_map[iid]}"
+            )
 
     answers_text = "\n".join(answered)
     prompt = f"""Based on these Indian voter preferences:
@@ -1543,7 +1832,12 @@ Return ONLY valid JSON, no markdown fences."""
         return jsonify({"status": "success", "result": result, "lang": lang})
     except Exception as exc:
         logger.error("VoterMatch error: %s", exc)
-        return jsonify({"error": "Could not generate vibe. Try again!", "status": "error"}), 500
+        return (
+            jsonify(
+                {"error": "Could not generate vibe. Try again!", "status": "error"}
+            ),
+            500,
+        )
 
 
 @app.route("/api/leaderboard", methods=["GET"])
@@ -1553,7 +1847,13 @@ def leaderboard():
     Returns:
         JSON array of leaderboard entries sorted by rank.
     """
-    resp = jsonify({"status": "success", "leaderboard": LEADERBOARD, "total_constituencies": len(LEADERBOARD)})
+    resp = jsonify(
+        {
+            "status": "success",
+            "leaderboard": LEADERBOARD,
+            "total_constituencies": len(LEADERBOARD),
+        }
+    )
     resp.headers["Cache-Control"] = "public, max-age=300"
     return resp
 
@@ -1576,7 +1876,13 @@ def translate():
     if not text:
         return jsonify({"error": "text cannot be empty", "status": "error"}), 400
 
-    lang_map = {"hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali", "mr": "Marathi"}
+    lang_map = {
+        "hi": "Hindi",
+        "ta": "Tamil",
+        "te": "Telugu",
+        "bn": "Bengali",
+        "mr": "Marathi",
+    }
     language = lang_map.get(lang, "Hindi")
 
     prompt = f"""Translate the following election/civic text to {language}.
@@ -1587,10 +1893,22 @@ Text: {text}"""
 
     try:
         resp = model.generate_content(prompt)
-        return jsonify({"status": "success", "translated": resp.text.strip(), "lang": lang, "language": language})
+        return jsonify(
+            {
+                "status": "success",
+                "translated": resp.text.strip(),
+                "lang": lang,
+                "language": language,
+            }
+        )
     except Exception as exc:
         logger.error("Translate error: %s", exc)
-        return jsonify({"error": "Translation failed. Please try again.", "status": "error"}), 500
+        return (
+            jsonify(
+                {"error": "Translation failed. Please try again.", "status": "error"}
+            ),
+            500,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1608,9 +1926,7 @@ def not_found(exc):
 def rate_limit_exceeded(exc):
     """Handle 429 Too Many Requests."""
     return (
-        jsonify(
-            {"error": "Too many requests — please slow down.", "status": "error"}
-        ),
+        jsonify({"error": "Too many requests — please slow down.", "status": "error"}),
         429,
     )
 

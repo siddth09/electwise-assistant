@@ -8,8 +8,6 @@ import os
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("GEMINI_API_KEY", "test-api-key-dummy")
 os.environ.setdefault("SECRET_KEY", "test-secret")
@@ -47,7 +45,10 @@ class TestConfig:
         """System prompt should mention voters / voting."""
         from config import Config
 
-        assert "voter" in Config.SYSTEM_PROMPT.lower() or "voting" in Config.SYSTEM_PROMPT.lower()
+        assert (
+            "voter" in Config.SYSTEM_PROMPT.lower()
+            or "voting" in Config.SYSTEM_PROMPT.lower()
+        )
 
     def test_gemini_model_specified(self):
         from config import Config
@@ -80,7 +81,9 @@ class TestQuizJsonValidation:
     def test_missing_key_fails_validation(self):
         q = {**self.GOOD_QUESTION}
         del q["explanation"]
-        assert not all(k in q for k in ("question", "options", "correct", "explanation"))
+        assert not all(
+            k in q for k in ("question", "options", "correct", "explanation")
+        )
 
     def test_wrong_options_count_fails_validation(self):
         q = {**self.GOOD_QUESTION, "options": ["A", "B", "C"]}  # Only 3 options
@@ -98,7 +101,7 @@ class TestQuizJsonValidation:
         """Ensure regex extraction handles markdown-wrapped JSON from model."""
         import re
 
-        raw = "```json\n[{\"question\":\"Q\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correct\":0,\"explanation\":\"E\"}]\n```"
+        raw = '```json\n[{"question":"Q","options":["A","B","C","D"],"correct":0,"explanation":"E"}]\n```'
         match = re.search(r"\[.*\]", raw, re.DOTALL)
         assert match is not None
         parsed = json.loads(match.group())
@@ -180,7 +183,11 @@ class TestFetchElectionNews:
     def test_returns_list_when_service_works(self):
         """fetch_election_news should return a list when search service responds."""
         mock_items = [
-            {"title": "Election 2024", "snippet": "Details...", "link": "https://example.com"},
+            {
+                "title": "Election 2024",
+                "snippet": "Details...",
+                "link": "https://example.com",
+            },
         ]
         mock_service = MagicMock()
         mock_service.cse.return_value.list.return_value.execute.return_value = {

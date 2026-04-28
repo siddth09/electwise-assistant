@@ -125,7 +125,10 @@ class TestChatEndpoint:
             "country": "India",
             "history": [
                 {"role": "user", "content": "Tell me about Indian elections"},
-                {"role": "model", "content": "India holds general elections every 5 years."},
+                {
+                    "role": "model",
+                    "content": "India holds general elections every 5 years.",
+                },
             ],
         }
         response = app_client.post(
@@ -256,7 +259,16 @@ class TestTimelineEndpoint:
         response = app_client.get("/api/timeline?country=India")
         data = response.get_json()
         step = data["timeline"]["steps"][0]
-        required_fields = ("id", "phase", "title", "description", "duration", "icon", "color", "details")
+        required_fields = (
+            "id",
+            "phase",
+            "title",
+            "description",
+            "duration",
+            "icon",
+            "color",
+            "details",
+        )
         for field in required_fields:
             assert field in step, f"Missing field: {field}"
 
@@ -524,7 +536,16 @@ class TestConstituencyEndpoint:
         response = app_client.get("/api/constituency?name=Chandni+Chowk%2C+Delhi")
         data = response.get_json()
         for cand in data["data"]["candidates"]:
-            for field in ("name", "party", "symbol", "pillars", "vibe", "record", "endorsements", "color"):
+            for field in (
+                "name",
+                "party",
+                "symbol",
+                "pillars",
+                "vibe",
+                "record",
+                "endorsements",
+                "color",
+            ):
                 assert field in cand, f"Candidate missing field: {field}"
             assert len(cand["pillars"]) == 3
 
@@ -567,8 +588,11 @@ class TestConstituencyEndpoint:
 
     def test_all_five_constituencies_return_data(self, app_client):
         names = [
-            "Chandni Chowk, Delhi", "New Delhi, Delhi",
-            "South Delhi, Delhi", "East Delhi, Delhi", "North West Delhi, Delhi",
+            "Chandni Chowk, Delhi",
+            "New Delhi, Delhi",
+            "South Delhi, Delhi",
+            "East Delhi, Delhi",
+            "North West Delhi, Delhi",
         ]
         for name in names:
             response = app_client.get(f"/api/constituency?name={name}")
@@ -594,7 +618,11 @@ class TestCrowdEndpoint:
         assert data["avg_wait_min"] is None
 
     def test_post_valid_report(self, app_client):
-        payload = {"constituency": "Test Booth, Delhi", "wait_min": 15, "crowded": False}
+        payload = {
+            "constituency": "Test Booth, Delhi",
+            "wait_min": 15,
+            "crowded": False,
+        }
         response = app_client.post(
             "/api/crowd",
             data=json.dumps(payload),
@@ -649,7 +677,9 @@ class TestCrowdEndpoint:
         constituency = "RoundTrip, Delhi"
         app_client.post(
             "/api/crowd",
-            data=json.dumps({"constituency": constituency, "wait_min": 20, "crowded": True}),
+            data=json.dumps(
+                {"constituency": constituency, "wait_min": 20, "crowded": True}
+            ),
             content_type="application/json",
         )
         response = app_client.get(f"/api/crowd?constituency={constituency}")
@@ -743,7 +773,9 @@ class TestRoastEndpoint:
 
     def test_missing_excuse_returns_400(self, app_client):
         response = app_client.post(
-            "/api/roast", data=json.dumps({"lang": "en"}), content_type="application/json"
+            "/api/roast",
+            data=json.dumps({"lang": "en"}),
+            content_type="application/json",
         )
         assert response.status_code == 400
 
@@ -794,19 +826,23 @@ class TestVoterMatchEndpoint:
         {"issue_id": 6, "agree": False},
     ]
 
-    MOCK_RESULT_JSON = json.dumps({
-        "vibe_label": "Progressive Pragmatist",
-        "match_a": {"party_style": "Centre-Left Welfare", "pct": 72},
-        "match_b": {"party_style": "Right-Wing Development", "pct": 28},
-        "top_issue": "Energy Subsidy",
-        "tagline": "You believe the government should support citizens 💪🗳️",
-    })
+    MOCK_RESULT_JSON = json.dumps(
+        {
+            "vibe_label": "Progressive Pragmatist",
+            "match_a": {"party_style": "Centre-Left Welfare", "pct": 72},
+            "match_b": {"party_style": "Right-Wing Development", "pct": 28},
+            "top_issue": "Energy Subsidy",
+            "tagline": "You believe the government should support citizens 💪🗳️",
+        }
+    )
 
     def test_valid_voter_match_request(self, app_client, mock_gemini_model):
         mock_gemini_model.generate_content.return_value.text = self.MOCK_RESULT_JSON
         payload = {"answers": self.VALID_ANSWERS, "lang": "en"}
         response = app_client.post(
-            "/api/voter-match", data=json.dumps(payload), content_type="application/json"
+            "/api/voter-match",
+            data=json.dumps(payload),
+            content_type="application/json",
         )
         assert response.status_code == 200
         data = response.get_json()
@@ -817,7 +853,9 @@ class TestVoterMatchEndpoint:
         mock_gemini_model.generate_content.return_value.text = self.MOCK_RESULT_JSON
         payload = {"answers": self.VALID_ANSWERS, "lang": "en"}
         data = app_client.post(
-            "/api/voter-match", data=json.dumps(payload), content_type="application/json"
+            "/api/voter-match",
+            data=json.dumps(payload),
+            content_type="application/json",
         ).get_json()
         result = data["result"]
         assert "vibe_label" in result
@@ -829,14 +867,18 @@ class TestVoterMatchEndpoint:
     def test_fewer_than_3_answers_returns_400(self, app_client):
         payload = {"answers": [{"issue_id": 1, "agree": True}], "lang": "en"}
         response = app_client.post(
-            "/api/voter-match", data=json.dumps(payload), content_type="application/json"
+            "/api/voter-match",
+            data=json.dumps(payload),
+            content_type="application/json",
         )
         assert response.status_code == 400
 
     def test_empty_answers_returns_400(self, app_client):
         payload = {"answers": [], "lang": "en"}
         response = app_client.post(
-            "/api/voter-match", data=json.dumps(payload), content_type="application/json"
+            "/api/voter-match",
+            data=json.dumps(payload),
+            content_type="application/json",
         )
         assert response.status_code == 400
 
@@ -844,7 +886,9 @@ class TestVoterMatchEndpoint:
         mock_gemini_model.generate_content.return_value.text = self.MOCK_RESULT_JSON
         payload = {"answers": self.VALID_ANSWERS, "lang": "hi"}
         data = app_client.post(
-            "/api/voter-match", data=json.dumps(payload), content_type="application/json"
+            "/api/voter-match",
+            data=json.dumps(payload),
+            content_type="application/json",
         ).get_json()
         assert data["lang"] == "hi"
 
@@ -852,7 +896,9 @@ class TestVoterMatchEndpoint:
         mock_gemini_model.generate_content.side_effect = Exception("timeout")
         payload = {"answers": self.VALID_ANSWERS, "lang": "en"}
         response = app_client.post(
-            "/api/voter-match", data=json.dumps(payload), content_type="application/json"
+            "/api/voter-match",
+            data=json.dumps(payload),
+            content_type="application/json",
         )
         assert response.status_code == 500
 
@@ -866,7 +912,9 @@ class TestTranslateEndpoint:
     """Tests for POST /api/translate."""
 
     def test_valid_translation_request(self, app_client, mock_gemini_model):
-        mock_gemini_model.generate_content.return_value.text = "मतदाता पहचान पत्र जरूरी है।"
+        mock_gemini_model.generate_content.return_value.text = (
+            "मतदाता पहचान पत्र जरूरी है।"
+        )
         payload = {"text": "Voter ID card is required.", "lang": "hi"}
         response = app_client.post(
             "/api/translate", data=json.dumps(payload), content_type="application/json"
@@ -902,10 +950,18 @@ class TestTranslateEndpoint:
 
     def test_supported_language_codes(self, app_client, mock_gemini_model):
         mock_gemini_model.generate_content.return_value.text = "translated"
-        for code, expected_name in [("hi", "Hindi"), ("ta", "Tamil"), ("te", "Telugu"), ("bn", "Bengali"), ("mr", "Marathi")]:
+        for code, expected_name in [
+            ("hi", "Hindi"),
+            ("ta", "Tamil"),
+            ("te", "Telugu"),
+            ("bn", "Bengali"),
+            ("mr", "Marathi"),
+        ]:
             payload = {"text": "Election day is here!", "lang": code}
             data = app_client.post(
-                "/api/translate", data=json.dumps(payload), content_type="application/json"
+                "/api/translate",
+                data=json.dumps(payload),
+                content_type="application/json",
             ).get_json()
             assert data["language"] == expected_name, f"Failed for lang={code}"
 
