@@ -12,6 +12,7 @@ class Config:
     # Flask
     SECRET_KEY: str = os.environ.get("SECRET_KEY", "change-me-in-production")
     DEBUG: bool = os.environ.get("FLASK_ENV", "production") == "development"
+    ALLOWED_ORIGINS: list = ["http://localhost:5000", "http://localhost:8080", "https://electwise.web.app", "https://electwise-assistant.web.app"]
 
     # Google AI
     GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
@@ -29,7 +30,7 @@ class Config:
 
     # AI system prompt — defines the ElectWise persona
     SYSTEM_PROMPT: str = """You are ElectWise, a friendly and knowledgeable civic education AI assistant 
-specialising in helping citizens understand the election process, voter rights, and democratic participation.
+specialising in helping citizens understand the election process, timelines, and steps in an interactive and easy-to-follow way.
 
 Your core responsibilities:
 1. Explain election timelines, phases, and procedures clearly and accurately

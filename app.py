@@ -265,7 +265,7 @@ app = Flask(__name__)
 app.config.from_object(Config)
 
 # Enable CORS for security and cross-origin resource sharing
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, resources={r"/api/*": {"origins": Config.ALLOWED_ORIGINS}})
 
 # Enable Gzip/Brotli compression for efficiency
 Compress(app)
@@ -278,7 +278,6 @@ csp = {
     "default-src": ["'self'"],
     "script-src": [
         "'self'",
-        "'unsafe-inline'",
         "https://fonts.googleapis.com",
     ],
     "style-src": [
